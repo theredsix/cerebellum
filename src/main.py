@@ -4,9 +4,11 @@ import tiktoken
 import cssutils
 import logging
 import tiktoken
+import base64
+from datetime import datetime
 from openai import OpenAI
 from playwright.sync_api import sync_playwright, Page
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, Tag, Comment
 
 
 # Suppress cssutils warnings and errors
@@ -35,9 +37,13 @@ def is_non_visible(element: Tag) -> bool:
         
         # Check for non-visible properties
         for prop, value in non_visible_styles.items():
-            if style.getPropertyValue(prop) == value:
-                # print('invisible element detected', element)
-                return True
+            property_value = style.getPropertyValue(prop)
+            if property_value:
+                # Remove any !important flag and trim whitespace
+                cleaned_value = property_value.replace('!important', '').strip()
+                if cleaned_value == value:
+                    # print('invisible element detected', element)
+                    return True
 
     return False
 
@@ -99,9 +105,29 @@ def count_tokens(text):
     return len(encoding.encode(text))
 
 def remove_unnecessary_attributes(soup: BeautifulSoup) -> BeautifulSoup:
-    allowed_attributes = ['aria-hidden', 'role', 'aria-label', 'aria-labelledby', 'aria-describedby', 'class', 'id']
+    general_allowed_attributes = [
+        'aria-hidden', 
+        'role', 
+        'aria-label', 
+        'aria-labelledby', 
+        'aria-describedby', 
+        'class', 
+        'id',
+        'name',
+        'title',
+    ]
+    
+    img_allowed_attributes = general_allowed_attributes + ['alt', 'src']
+    input_allowed_attributes = general_allowed_attributes + ['type', 'value', 'placeholder']
     
     for tag in soup.find_all(True):  # Find all tags
+        if tag.name == 'img':
+            allowed_attributes = img_allowed_attributes
+        elif tag.name == 'input':
+            allowed_attributes = input_allowed_attributes
+        else:
+            allowed_attributes = general_allowed_attributes
+        
         attrs_to_remove = [attr for attr in tag.attrs if attr not in allowed_attributes]
         for attr in attrs_to_remove:
             del tag[attr]
@@ -115,8 +141,12 @@ def get_visible_html(page):
     # Parse the content with BeautifulSoup
     soup = BeautifulSoup(content, 'html.parser')
     
+    # Remove all HTML comments
+    for comment in soup.find_all(text=lambda text: isinstance(text, Comment)):
+        comment.extract()
+
     # Remove all script and meta tags
-    for script in soup(["script", "meta"]):
+    for script in soup(["script", "meta", "link"]):
         script.decompose()
     
     # Remove non-visible elements
@@ -236,9 +266,8 @@ Goal:
         return [{"type": "function", "function": {"name": "unreachable"}}]
 
 def perform_action(page: Page, tool_calls: list):
-    call = tool_calls.pop(0)
-    
-    if call is not None and call.type == "function":
+    if len(tool_calls) > 0 and tool_calls[0] is not None and tool_calls[0].type == "function":
+        call = tool_calls[0]
         function_name = call.function.name
         arguments = call.function.arguments
         
@@ -272,27 +301,78 @@ def perform_action(page: Page, tool_calls: list):
     print("No terminal action called, continuing...")
     return None  # Continue if no terminal action was called
 
+def save_training_data(page: Page, goal: str, actions: list, visible_html: str):
+    data = {
+        "url": page.url,
+        "goal": goal,
+        "action": {
+            "name": actions[0].function.name,
+            "arguments":  (json.loads(actions[0].function.arguments) if actions[0].function.arguments else None)
+        },
+        "visible_html": base64.b64encode(visible_html.encode()).decode()
+    }
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"browser_action_{timestamp}.json"
+
+    with open(filename, "w") as f:
+        json.dump(data, f, indent=2)
+
+    print(f"Data saved to {filename}")
+
+def inflate_html_from_training_data(filename: str):
+    # Read the JSON file
+    with open(filename, 'r') as f:
+        data = json.load(f)
+    
+    # Extract the base64 encoded HTML
+    encoded_html = data.get('visible_html')
+    
+    if not encoded_html:
+        print(f"No visible_html found in {filename}")
+        return
+    
+    # Decode the HTML
+    html = base64.b64decode(encoded_html).decode('utf-8')
+    
+    # Create a new filename for the HTML file
+    html_filename = filename.replace('.json', '.html')
+    
+    # Write the HTML to a new file
+    with open(html_filename, 'w', encoding='utf-8') as f:
+        f.write(html)
+    
+    print(f"HTML extracted and saved to {html_filename}")
+
 def perform_browser_action(page: Page, goal: str):
     outcome = None
     while outcome is None:
         visible_html = get_visible_html(page)
         action = get_next_action(goal, visible_html)
         outcome = perform_action(page, action)
-        while True:
-            # Check for keyboard input
-            input("Press enter to continue the browser...")
-            break
+        # Save data to JSON file
+        save_training_data(page, goal, action, visible_html)
+
+        wait_for_input()
     return outcome, page
+
+def wait_for_input():
+    while True:
+        # Check for keyboard input
+        input("Press enter to continue...")
+        break
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
     page = browser.new_page()
-    page.goto("https://www.amazon.com")
-    goal = "find a usb c cable under 10 feet and add one it to my cart"
-
+    page.goto("https://jalopnik.com/")
+    goal = "Display an article with full text about Toyota Corollas"
+    wait_for_input()
+    
     perform_browser_action(page, goal)
 
     browser.close()
 
 
+# inflate_html_from_training_data("browser_action_20240802_015816.json")
 
