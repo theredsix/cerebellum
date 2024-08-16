@@ -188,6 +188,7 @@ def remove_unused_css(soup: BeautifulSoup) -> BeautifulSoup:
 def count_tokens(text):
     encoding = tiktoken.encoding_for_model("gpt-4o")
     return len(encoding.encode(text))
+
 def remove_unnecessary_attributes(soup: BeautifulSoup) -> BeautifulSoup:
     allowed_attributes = [
         'role', 
@@ -236,11 +237,7 @@ def remove_empty_elements(soup: BeautifulSoup) -> BeautifulSoup:
             element.decompose()
     return soup
 
-
-def get_visible_html(page):
-    # # Get the page content
-    # content = page.content()
-
+def get_elements_in_viewport(page):
     elements_in_viewport = page.evaluate("""
     () => {
         const viewport = {
@@ -300,16 +297,21 @@ def get_visible_html(page):
 
     # Join the elements into a single HTML string and create a full HTML document
     viewport_html = f'''<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>{page.title()}</title></head>{''.join(elements_in_viewport)}</html>'''
+    return viewport_html
+
+def get_visible_html(page):
+    # # Get the page content
+    content = page.content()
     
     # Parse the content with BeautifulSoup
-    soup = BeautifulSoup(viewport_html, 'html.parser')
+    soup = BeautifulSoup(content, 'html.parser')
 
     # Remove all HTML comments
     for comment in soup.find_all(text=lambda text: isinstance(text, Comment)):
         comment.extract()
 
     # Remove all script and meta tags
-    for script in soup(["script", "meta", "link"]):
+    for script in soup(["script", "meta", "link", "style"]):
         script.decompose()
     
     # Remove non-visible elements
