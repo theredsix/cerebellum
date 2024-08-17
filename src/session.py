@@ -1,14 +1,15 @@
 from dataclasses import dataclass
+import html
 from playwright.sync_api import Page, TimeoutError
-from reasoner import Reasoner
 from bs4 import BeautifulSoup
-from abc import ABC
+from abc import ABC, abstractmethod
 from enum import Enum
-from src.html import get_visible_html
+from html_utils import get_visible_html
+from base64 import b64encode
 
 @dataclass
 class PageState:
-    content: str
+    html: str
     screenshot_full: str
     screenshot_viewport: str
     url: str
@@ -38,6 +39,12 @@ class RecordedAction:
     action: PageAction
     result: ActionResult
 
+class Reasoner(ABC):
+    @abstractmethod
+    def get_next_action(self, goal: str, current_page: PageState, session_history: list[RecordedAction]) -> PageAction:
+        pass
+
+
 class BrowserSession(ABC):
     page: Page
     goal: str
@@ -45,18 +52,18 @@ class BrowserSession(ABC):
 
     def __init__(self, goal: str, page: Page, actions: list[RecordedAction] = None):
         self.goal = goal
-        self.page = Page
+        self.page = page
         self.actions = actions if actions is not None else []
 
-    def display_state(self, step: int):
-        if step < 0 or step >= len(self.actions):
-            raise ValueError(f"Invalid step: {step}. Must be between 0 and {len(self.actions) - 1}")
-        
+    def display_state(self, step: int = -1, page: Page = None):
+        if page is None:
+            page = self.page
+
         action = self.actions[step]
         
         # Parse and pretty print the HTML content        
-        soup = BeautifulSoup(action.state.content, 'html.parser')
-        pretty_html = soup.prettify()
+        soup = BeautifulSoup(action.state.html, 'html.parser')
+        pretty_html = html.escape(soup.prettify())
         
         # Create an HTML document with viewport screenshot, full screenshot, pretty-printed HTML, action, and result
         html_content = f"""
@@ -77,8 +84,9 @@ class BrowserSession(ABC):
 <body>
     <h2>Action</h2>
     <div class="action-result">
+        <p><strong>Intent:</strong> {action.action.reason}</p>
         <p><strong>Function:</strong> {action.action.function}</p>
-        <p><strong>Arguments:</strong> {', '.join(action.action.args)}</p>
+        <p><strong>Arguments:</strong> {'<br>'.join([f"{k}: {v}" for k, v in action.action.args.items()])}</p>
     </div>
 
     <h2>Result</h2>
@@ -100,7 +108,10 @@ class BrowserSession(ABC):
         """
         
         # Set the content of the page to our created HTML
-        self.page.set_content(html_content)
+        page.set_content(html_content)
+
+
+    
 
 class RecordedBrowserSession(BrowserSession):
 
@@ -122,7 +133,7 @@ class ActiveBrowserSession(BrowserSession):
         params = action.args
         outcome: ActionOutcome = None
         
-        print(f"{function_name}({params})")
+        print(f"INTENT: {action.reason}")
 
         # Ensure the css_selector can select an element if provided
         if 'css_selector' in params:
@@ -181,9 +192,9 @@ class ActiveBrowserSession(BrowserSession):
     def step(self):
         # Gather current state
         current_state = PageState(
-            content=get_visible_html(self.page),
-            screenshot_full=self.page.screenshot(full_page=True),
-            screenshot_viewport=self.page.screenshot(),
+            html=get_visible_html(self.page),
+            screenshot_full=b64encode(self.page.screenshot(full_page=True)).decode('utf-8'),
+            screenshot_viewport=b64encode(self.page.screenshot(full_page=False)).decode('utf-8'),
             url=self.page.url
         )
 
@@ -208,3 +219,6 @@ class ActiveBrowserSession(BrowserSession):
         self.actions[-1].result.outcome != ActionOutcome.GOAL_ACHIEVED or \
         self.actions[-1].result.outcome != ActionOutcome.GOAL_UNREACHABLE:
             self.step()
+
+
+    

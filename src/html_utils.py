@@ -1,5 +1,5 @@
-import datetime
 from html.parser import HTMLParser
+from playwright.sync_api import Page
 import re
 from bs4 import BeautifulSoup, Comment, Tag
 import cssutils
@@ -195,7 +195,7 @@ def remove_unnecessary_attributes(soup: BeautifulSoup) -> BeautifulSoup:
         'alt'
     ]
 
-    allowed_tags = ['img', 'input', 'a', 'textarea', 'select', 'optgroup', 'option']
+    allowed_tags = ['svg', 'img', 'button', 'input', 'a', 'textarea', 'select', 'optgroup', 'option']
 
     for tag in soup.find_all(True):  # Find all tags
         if tag.name in allowed_tags or tag.attrs.get('draggable') or tag.attrs.get('contenteditable'):
@@ -217,7 +217,7 @@ def remove_empty_elements(soup: BeautifulSoup) -> BeautifulSoup:
             element.decompose()
     return soup
 
-def get_elements_in_viewport(page):
+def get_elements_in_viewport(page: Page):
     elements_in_viewport = page.evaluate("""
     () => {
         const viewport = {
@@ -279,36 +279,43 @@ def get_elements_in_viewport(page):
     viewport_html = f'''<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>{page.title()}</title></head>{''.join(elements_in_viewport)}</html>'''
     return viewport_html
 
-def get_visible_html(page):
+def empty_svg(soup):
+    for svg in soup.find_all('svg'):
+        # Store attributes
+        attrs = svg.attrs
+        # Clear contents
+        svg.clear()
+        # Restore attributes
+        svg.attrs = attrs
+    return soup
+
+def get_visible_html(page: Page):
     # # Get the page content
     content = page.content()
     
     # Parse the content with BeautifulSoup
     soup = BeautifulSoup(content, 'html.parser')
 
-    # Remove all HTML comments
-    for comment in soup.find_all(text=lambda text: isinstance(text, Comment)):
-        comment.extract()
-
-    # Remove all script and meta tags
-    for script in soup(["script", "meta", "link", "style"]):
-        script.decompose()
-    
-    # Remove non-visible elements
     remove_nonvisible_elements(soup)
-
-    collapse_single_child_to_parent(soup)
-
-    # # Remove all style tags
-    # for style in soup(["style"]):
-    #     style.decompose()
 
     remove_unnecessary_attributes(soup)
 
     remove_empty_elements(soup)
 
-    # # Remove unused CSS
-    soup = remove_unused_css(soup)
+    collapse_single_child_to_parent(soup)
+
+    # # # Remove unused CSS
+    # soup = remove_unused_css(soup)
+
+    empty_svg(soup)
+
+    # # Remove all script and meta tags
+    for tag in soup(["script", "meta", "link", "style"]):
+        tag.decompose()
+    
+    # # Remove all HTML comments
+    for comment in soup.find_all(text=lambda text: isinstance(text, Comment)):
+        comment.extract()
     
     # Get the visible HTML
     visible_html = soup.prettify()

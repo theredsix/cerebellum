@@ -11,7 +11,7 @@ tools = [
                         },
                         "css_selector": {
                             "type": "string",
-                            "description": "Specifies the CSS selector of the element to click. This string is a CSS selector that can be passed to jQuery",
+                            "description": "Specifies the CSS selector of the input element to fill. This string is a CSS selector that can be passed to jQuery. Only supports html tag, class and id attributes. Cannot use descendant, child or sibling selectors.",
                         }
                     },
                     "required": ["reasoning", "css_selector"],
@@ -29,7 +29,7 @@ tools = [
                         },
                         "css_selector": {
                             "type": "string",
-                            "description": "Specifies the CSS selector of the input element to fill. This string is a CSS selector that can be passed to jQuery",
+                            "description": "Specifies the CSS selector of the input element to fill. This string is a CSS selector that can be passed to jQuery. Only supports html tag, class and id attributes. Cannot use descendant, child or sibling selectors.",
                         },
                         "text": {
                             "type": "string",
@@ -45,7 +45,7 @@ tools = [
             },
             {
                 "name": "focus",
-                "description": "Focus the viewport on an element, this function should be called for when you intend to scroll to a specific section of the page",
+                "description": "Scroll the viewport to an element, only use this function to display a part of the page to the user. Do not use if you intent to interact with an offscreen element",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -55,7 +55,7 @@ tools = [
                         },
                         "css_selector": {
                             "type": "string",
-                            "description": "Specifies the CSS selector of the element to focus on. This string is a CSS selector that can be passed to jQuery",
+                            "description": "Specifies the CSS selector of the input element to fill. This string is a CSS selector that can be passed to jQuery. Only supports html tag, class and id attributes. Cannot use descendant, child or sibling selectors.",
                         },
                     },
                     "required": ["reasoning", "css_selector"],
