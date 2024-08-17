@@ -43,9 +43,8 @@ class GoogleGeminiReasoner(Reasoner):
             "tool_config": tool_config
         }
         
-        # print(payload)
         response = requests.post(url, headers=headers, data=json.dumps(payload))
-        
+
         return response.json()
 
 
@@ -149,6 +148,7 @@ Key considerations:
 * Always explain your reasoning the "reasoning" argument to the function called.
 * Always press ENTER after filling the last or only input field.
 * Solve captcha pages if they come up.
+* If you are unsure of which input to fill or button to click, choose a child of the most correlated element
 
 Goal: 
 {goal}
