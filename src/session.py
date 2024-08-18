@@ -4,7 +4,7 @@ from playwright.sync_api import Page, TimeoutError
 from bs4 import BeautifulSoup
 from abc import ABC, abstractmethod
 from enum import Enum
-from html_utils import get_visible_html
+from html_utils import AbstractHTMLExtractor, VisibleHTMLExtractor
 from base64 import b64encode
 
 @dataclass
@@ -122,10 +122,12 @@ class RecordedBrowserSession(BrowserSession):
 
 class ActiveBrowserSession(BrowserSession):
     reasoner: Reasoner
+    html_extractor: AbstractHTMLExtractor
 
-    def __init__(self, goal: str, page: Page, reasoner: Reasoner):
+    def __init__(self, goal: str, page: Page, reasoner: Reasoner, html_extractor: AbstractHTMLExtractor = None):
         super().__init__(goal, page)
         self.reasoner = reasoner
+        self.html_extractor = html_extractor if html_extractor is not None else VisibleHTMLExtractor()
 
     def perform_action(self, action: PageAction) -> ActionResult:
         
@@ -192,7 +194,7 @@ class ActiveBrowserSession(BrowserSession):
     def step(self):
         # Gather current state
         current_state = PageState(
-            html=get_visible_html(self.page),
+            html=self.html_extractor.get_html(self.page),
             screenshot_full=b64encode(self.page.screenshot(full_page=True)).decode('utf-8'),
             screenshot_viewport=b64encode(self.page.screenshot(full_page=False)).decode('utf-8'),
             url=self.page.url
