@@ -1,9 +1,10 @@
-from abc import ABC, abstractmethod
 from html.parser import HTMLParser
 from playwright.sync_api import Page
 import re
 from bs4 import BeautifulSoup, Comment, NavigableString, PageElement, Tag
 import cssutils
+from src.abstracts import AbstractHTMLSensor
+
 
 class SingleLineParser(HTMLParser):
     def __init__(self):
@@ -54,29 +55,8 @@ class SingleLineParser(HTMLParser):
         else:
             return f'{key}="{value}"'
         
-class AbstractHTMLExtractor(ABC):
-    """
-    An abstract base class for HTML extractors.
 
-    This class defines the interface for HTML extractors, which are responsible
-    for processing and extracting HTML content from web pages.
-
-    Subclasses must implement the `get_html` method to define specific
-    extraction logic.
-
-    Attributes:
-        None
-
-    Methods:
-        minify_html(html_string: str) -> str:
-            Minifies the given HTML string by removing extra whitespace and
-            compressing it into a single line.
-
-        get_html(page: Page) -> str:
-            Abstract method that must be implemented by subclasses to extract
-            and process HTML content from a given page.
-    """
-    
+class MinifyHTML:
     def minify_html(self, html_string):
         parser = SingleLineParser()
         parser.feed(html_string)
@@ -84,50 +64,32 @@ class AbstractHTMLExtractor(ABC):
         # Remove extra whitespace between tags
         return re.sub(r'>\s+<', '><', single_line)
 
-    @abstractmethod
-    def get_html(self, page: Page) -> str:
-        pass    
 
-class RawHTMLExtractor(AbstractHTMLExtractor):
-    """
-    A class for extracting raw HTML content from web pages.
+class RawHTMLSensor(AbstractHTMLSensor, MinifyHTML):
 
-    This class extends AbstractHTMLExtractor and provides a simple implementation
-    for extracting HTML content without any modifications or simplifications.
-
-    Attributes:
-        None
-
-    Methods:
-        get_html(page: Page) -> str:
-            Extracts the raw HTML content from the given page and minifies it.
-
-    Usage:
-        extractor = RawHTMLExtractor()
-        html_content = extractor.get_html(page)
-    """
-
-    def get_html(self, page: Page) -> str:
+    def sense(self, page: Page) -> str:
         html = page.content()
         minified_html = self.minify_html(html)
         return minified_html
 
-class VisibleHTMLExtractor(AbstractHTMLExtractor):
+class VisibleHTMLSensor(AbstractHTMLSensor, MinifyHTML):
 
-    def get_direct_descendant_count(self, element: Tag) -> int:
-        return len([child for child in element.children if isinstance(child, Tag) or (isinstance(child, NavigableString) and child.strip())])
+    def get_direct_descendants(self, element: Tag) -> int:
+        return [child for child in element.children if isinstance(child, Tag) or (isinstance(child, NavigableString) and child.strip())]
     
     def collapse_single_child_to_parent(self, soup: BeautifulSoup) -> BeautifulSoup:
         def dfs_collapse(element: PageElement):
-            if not element or not hasattr(element, 'contents') or not hasattr(element, 'name'):
+            if not element or not hasattr(element, 'children') or not hasattr(element, 'name'):
                 return
             
-            saved_children = list(element.contents)
+            saved_children = self.get_direct_descendants(element)
 
             # Check if this element has only one child
-            if element.name in ['div', 'span'] and self.get_direct_descendant_count(element) == 1 \
-                and element.parent is not None and hasattr(element.parent, 'name') and element.parent.name != 'body':
-                element.unwrap()
+            if element.name in ['div', 'span'] and len(saved_children) == 1:
+                if element.parent is not None and hasattr(element.parent, 'name') and element.parent.name != 'body':
+                    element.unwrap()
+                elif not isinstance(saved_children[0], NavigableString): #Case we're under body, we want to unwrap until we're one level above strings
+                    element.unwrap()
             
             # Process children first (depth-first)
             for child in saved_children:
@@ -276,7 +238,7 @@ class VisibleHTMLExtractor(AbstractHTMLExtractor):
                 dfs_remove_empty(child)          
 
             # Check if this element has only one child
-            if element.name not in ['head', 'body'] and self.get_direct_descendant_count(element) == 0:
+            if element.name not in ['head', 'body'] and len(self.get_direct_descendants(element)) == 0:
                 element.decompose()
             
 
@@ -358,7 +320,7 @@ class VisibleHTMLExtractor(AbstractHTMLExtractor):
             svg.attrs = attrs
         return soup
 
-    def get_html(self, page: Page):
+    def sense(self, page: Page):
         # # Get the page content
         content = page.content()
         

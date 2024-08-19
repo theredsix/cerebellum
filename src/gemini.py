@@ -1,9 +1,9 @@
 import json
-from session import PageAction, PageState, RecordedAction, Reasoner
-from openapi import tools
 import requests
 import json
 from typing import List, Dict, Any
+from src.session import PageAction, PageState, RecordedAction, AbstractReasoner
+from src.openapi import tools
 
 
 tool_config = {
@@ -13,7 +13,7 @@ tool_config = {
   },
 }
 
-class GoogleGeminiReasoner(Reasoner):
+class GoogleGeminiReasoner(AbstractReasoner):
     api_key: str
 
     def __init__(self, api_key: str, model_name: str = "gemini-1.5-pro-latest"):
@@ -140,9 +140,11 @@ Given a webpage's HTML and full + viewport screenshot, decide the best action to
 
 Key considerations:
 * Only consider the goal achieved if and only if the current state and function call history achieves ALL parts of the goal
+* A goal is not achieved if you believe there is one or more additional action necessary (i.e clicking, filling, submitting)
+* Verify search results align with the goal; don't assume accuracy
 * You are provided with a "viewport" view of the webpage and a full screenshot of the entire webpage.
-* Only use html tag, class and id attributes in CSS selectors.
-* Cannot use descendant, child or sibling CSS selectors.
+* Always include the class and id attributes of the element you are trying to select
+* Do not use descendant, child or sibling CSS selectors.
 * If you believe the goal cannot be achieved, call the "unreachable" function. 
 * If you believe the HTML and viewport screenshot shows that the goal has already been achieved, call the "achieved" function.
 * Always explain your reasoning the "reasoning" argument to the function called.

@@ -2,6 +2,10 @@
 browser_action_*.json
 browser_action_*.html
 
+/*.cere
+
+session
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
