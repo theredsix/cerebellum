@@ -1,6 +1,6 @@
-from cerebellum.limb.browser.planner import GoogleGeminiReasoner
-from cerebellum.limb.browser.session import ActiveBrowserSession
-from cerebellum.recorders import PageActionRecorder, FileSessionRecorder, PausingRecorder
+from cerebellum.limb.browser.planner import GeminiBrowserPlanner
+from cerebellum.limb.browser.session import BrowserSession
+from cerebellum.memory.file import FileSessionMemory
 from playwright.sync_api import sync_playwright
 import os
 
@@ -18,12 +18,12 @@ with sync_playwright() as p:
     debug_page = context.new_page()
     page.goto("https://www.amazon.com/")
 
-    recorders = [FileSessionRecorder('session.cere'), PageActionRecorder(debug_page), PausingRecorder()]
-    reasoner = GoogleGeminiReasoner(api_key=os.environ['GEMINI_API_KEY'])
+    recorders = [FileSessionMemory('session.cere')]
+    planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
 
     goal = "search for a usb c cable of 10 feet and add one to the cart"
 
-    session = ActiveBrowserSession(goal, page, reasoner, recorders=recorders)
+    session = BrowserSession(goal, page, planner=planner, recorders=recorders)
 
     wait_for_input()
 

@@ -1,3 +1,4 @@
+import base64
 import re
 import cssutils
 from html.parser import HTMLParser
@@ -5,6 +6,9 @@ from bs4 import BeautifulSoup, Comment, NavigableString, PageElement, Tag
 from cerebellum.core_abstractions import AbstractSensor
 from cerebellum.limb.browser.types import BrowserState
 from playwright.sync_api import Page
+import logging
+
+cssutils.log.setLevel(logging.FATAL)
 
 class SingleLineParser(HTMLParser):
     def __init__(self):
@@ -322,7 +326,9 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             svg.attrs = attrs
         return soup
 
-    def sense(self, page: Page):
+    def sense(self):
+        page = self.page
+
         # # Get the page content
         content = page.content()
         
@@ -359,8 +365,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         return BrowserState(
             html=visible_html,
             raw_html=BrowserSensor.minify_html(content),
-            screenshot_full=self.page.screenshot(full_page=True),
-            screenshot_viewport=self.page.screenshot(),
+            screenshot_full=base64.b64encode(self.page.screenshot(full_page=True, type='jpeg', quality=85)).decode('utf-8'),
+            screenshot_viewport=base64.b64encode(self.page.screenshot(full_page=False, type='jpeg', quality=85)).decode('utf-8'),
             url=self.page.url
         )
 

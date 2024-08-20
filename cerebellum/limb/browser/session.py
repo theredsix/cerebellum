@@ -28,7 +28,6 @@ class BrowserSession(AbstractSession[BrowserState, BrowserAction, BrowserActionR
             past_actions: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]] = []):
         limb = BrowserLimb(page)
         sensor = BrowserSensor(page)
-        planner = AbstractPlanner()  # You might want to replace this with a specific planner
         super().__init__(
             goal=goal,
             limb=limb,

@@ -22,7 +22,7 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
             element = self.page.query_selector(css_selector)
             if element is None:
                 print(f"Warning: No element found for selector '{css_selector}'")
-                outcome = BrowserActionOutcome.INVALID_CSS_SELECTOR
+                outcome = BrowserActionOutcome['INVALID_CSS_SELECTOR']
 
         while outcome is None:
             try:
@@ -38,11 +38,11 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                             self.page.fill(css_selector, text)
                             if press_enter:
                                 self.page.press(css_selector, "Enter")
-                            outcome = BrowserActionOutcome.SUCCESS
+                            outcome = BrowserActionOutcome['SUCCESS']
                         except Exception as e:
                             if "Element is not an <input>" in str(e):
                                 print(f"Error: Element with selector '{css_selector}' is not fillable")
-                                outcome = BrowserActionOutcome.NONFILLABLE_CSS_SELECTOR
+                                outcome = BrowserActionOutcome['NONFILLABLE_CSS_SELECTOR']
                             else:
                                 raise  # Re-raise the exception
                     
@@ -50,24 +50,29 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                         css_selector = params["css_selector"]
                         print(f"Clicking element: selector='{css_selector}'")
                         self.page.click(css_selector)
-                        outcome = BrowserActionOutcome.SUCCESS
+                        outcome = BrowserActionOutcome['SUCCESS']
 
                     case "focus":
                         css_selector = params["css_selector"]
                         print(f"Focusing on element: selector='{css_selector}'")
                         self.page.focus(css_selector)
-                        outcome = BrowserActionOutcome.SUCCESS
+                        outcome = BrowserActionOutcome['SUCCESS']
                     
                     case "achieved":
                         print("Goal achieved!")
-                        outcome = BrowserActionOutcome.GOAL_ACHIEVED
+                        outcome = BrowserActionOutcome['GOAL_ACHIEVED']
                     
                     case "unreachable":
                         print("Goal unreachable.")
-                        outcome = BrowserActionOutcome.GOAL_UNREACHABLE
+                        outcome = BrowserActionOutcome['GOAL_UNREACHABLE']
             except TimeoutError:
                 print(f"Timeout error occurred while performing action: {function_name}")
-                outcome = BrowserActionOutcome.TIMEOUT
-        
-        print("No terminal action called, continuing...")
-        return BrowserActionResult(url=self.page.url, outcome=outcome)
+                outcome = BrowserActionOutcome['TIMEOUT']
+
+        # Inject at least 1 second wait for action to be processed
+        self.page.wait_for_timeout(500)
+        self.page.wait_for_load_state("domcontentloaded")
+        self.page.wait_for_timeout(500)
+    
+        is_terminal_state = outcome in [BrowserActionOutcome['GOAL_ACHIEVED'], BrowserActionOutcome['GOAL_UNREACHABLE']]
+        return BrowserActionResult(url=self.page.url, outcome=outcome, is_terminal_state=is_terminal_state)

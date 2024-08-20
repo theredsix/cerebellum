@@ -3,8 +3,7 @@ import requests
 import json
 from playwright.sync_api import Page
 from typing import List, Dict, Any
-from cerebellum.core_abstractions import AbstractPlanner, SupervisorPlanner
-from cerebellum.limb.browser.session import PageAction, PageState, RecordedAction, AbstractReasoner
+from cerebellum.core_abstractions import AbstractPlanner, SupervisorPlanner, RecordedAction
 from cerebellum.limb.browser.types import BrowserAction, BrowserActionResult, BrowserState
 
 tools = [
@@ -107,7 +106,7 @@ tool_config = {
   },
 }
 
-class HumanPlanner(SupervisorPlanner[BrowserState, BrowserAction, BrowserActionResult]):
+class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, BrowserActionResult]):
     def __init__(self, base_planner: AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult], display_page: Page):
         super().__init__(
             base_planner=base_planner
@@ -206,7 +205,7 @@ class HumanPlanner(SupervisorPlanner[BrowserState, BrowserAction, BrowserActionR
             args=parsed_action['args']
         )
 
-class GoogleGeminiReasoner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult]):
+class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult]):
     api_key: str
 
     def __init__(self, api_key: str, model_name: str = "gemini-1.5-pro-latest"):
@@ -282,7 +281,7 @@ class GoogleGeminiReasoner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                         "response": {
                             "name": past_action.action.function,
                             "content": {
-                                "outcome": past_action.result.outcome.value,
+                                "outcome": past_action.result.outcome,
                                 "url": past_action.result.url
                             }
                         }
@@ -352,7 +351,7 @@ Goal:
 
 
     def get_next_action(self, goal: str, current_page: BrowserState, 
-                        session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]) -> PageAction:
+                        session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]) -> BrowserAction:
         system_prompt = self.get_system_prompt(goal)
         current_state_msg = self.format_state_into_chat(current_page)
         history = self.format_actions_into_chats(session_history)
@@ -368,7 +367,7 @@ Goal:
         print (f"Token Usage: {token_count}")
 
         args = {k: v for k, v in function_call['args'].items() if k != 'reasoning'}
-        return PageAction(function_call['name'], args, function_call['args']['reasoning'])
+        return BrowserAction(function_call['name'], args, function_call['args']['reasoning'])
 
 
 

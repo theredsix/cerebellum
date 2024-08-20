@@ -4,13 +4,21 @@ from typing import List, Tuple
 from typing import Generic, TypeVar
 
 @dataclass
-class ActionResult:
+class BaseState:
+    pass
+
+@dataclass
+class BaseAction:
+    pass
+
+@dataclass
+class BaseResult:
     is_terminal_state: bool
 
 # Define type variables
-StateT = TypeVar('StateT')
-ActionT = TypeVar('ActionT')
-ResultT = TypeVar('ResultT', bound=ActionResult)
+StateT = TypeVar('StateT', bound=BaseState)
+ActionT = TypeVar('ActionT', bound=BaseAction)
+ResultT = TypeVar('ResultT', bound=BaseResult)
 TrainingDataT = TypeVar('TrainingDataT')
 
 @dataclass
@@ -94,7 +102,7 @@ class AbstractSession(ABC, Generic[StateT, ActionT, ResultT]):
 
         # Call the recorder if it exists
         for recorder in self.recorders:
-            recorder.record(self.goal, self.past_actions)
+            recorder.record(self.goal, self.past_actions, len(self.past_actions) - 1)
 
         return action_result
     
@@ -107,7 +115,7 @@ class AbstractSessionRecorder(ABC, Generic[StateT, ActionT, ResultT]):
     def record(self, 
               goal: str,
               past_actions: List[RecordedAction[StateT, ActionT, ResultT]],
-               step: int = 0) -> bool:
+               step: int | None = None) -> bool:
         pass
 
 class AbstractSessionMemory(AbstractSessionRecorder[StateT, ActionT, ResultT]):
