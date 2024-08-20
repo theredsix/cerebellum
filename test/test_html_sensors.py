@@ -1,10 +1,8 @@
-import difflib
-import pytest
 from bs4 import BeautifulSoup
-from src.html_utils import VisibleHTMLSensor
+from src.limb.browser.sensor import BrowserSensor
 
 def test_collapse_single_child_to_parent():
-    extractor = VisibleHTMLSensor()
+    extractor = BrowserSensor()
 
     # Read the pre-collapse HTML
     pre_html = '''

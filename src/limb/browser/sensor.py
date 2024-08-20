@@ -1,10 +1,10 @@
-from html.parser import HTMLParser
-from playwright.sync_api import Page
 import re
-from bs4 import BeautifulSoup, Comment, NavigableString, PageElement, Tag
 import cssutils
-from src.abstracts import AbstractHTMLSensor
-
+from html.parser import HTMLParser
+from bs4 import BeautifulSoup, NavigableString, PageElement, Tag
+from src.core_abstractions import AbstractSensor
+from src.limb.browser.types import BrowserState
+from playwright.sync_api import Page
 
 class SingleLineParser(HTMLParser):
     def __init__(self):
@@ -54,26 +54,20 @@ class SingleLineParser(HTMLParser):
             return f'{key}="{value.replace(double_quote, escaped_double_quote)}"'
         else:
             return f'{key}="{value}"'
-        
 
-class MinifyHTML:
+class BrowserSensor(AbstractSensor[BrowserState]):
+    page: Page
+
+    def __init__(self, page: Page):
+        self.page = page
+
     def minify_html(self, html_string):
         parser = SingleLineParser()
         parser.feed(html_string)
         single_line = parser.get_single_line_html()
         # Remove extra whitespace between tags
         return re.sub(r'>\s+<', '><', single_line)
-
-
-class RawHTMLSensor(AbstractHTMLSensor, MinifyHTML):
-
-    def sense(self, page: Page) -> str:
-        html = page.content()
-        minified_html = self.minify_html(html)
-        return minified_html
-
-class VisibleHTMLSensor(AbstractHTMLSensor, MinifyHTML):
-
+    
     def get_direct_descendants(self, element: Tag) -> int:
         return [child for child in element.children if isinstance(child, Tag) or (isinstance(child, NavigableString) and child.strip())]
     
@@ -354,4 +348,11 @@ class VisibleHTMLSensor(AbstractHTMLSensor, MinifyHTML):
         # Further compress HTML to one line to reduce token count
         visible_html = self.minify_html(visible_html)
         
-        return visible_html
+        return BrowserState(
+            html=visible_html,
+            raw_html=self.minify_html(content),
+            screenshot_full=self.page.screenshot(full_page=True),
+            screenshot_viewport=self.page.screenshot(),
+            url=self.page.url
+        )
+
