@@ -1,9 +1,8 @@
-from src.core_abstractions import AbstractLimb
+from cerebellum.core_abstractions import AbstractLimb
 from .types import BrowserAction, BrowserActionOutcome, BrowserActionResult
 from playwright.sync_api import Page, TimeoutError
 
 class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
-    page: Page
 
     def __init__(self, page: Page):
         super().__init__()

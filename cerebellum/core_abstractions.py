@@ -1,16 +1,11 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
 from typing import List, Tuple
 from typing import Generic, TypeVar
 
-class ActionOutcome(Enum):
-    GOAL_ACHIEVED = "Goal achieved."
-    GOAL_UNREACHABLE = "Goal is unreachable."
-
 @dataclass
 class ActionResult:
-    outcome: TypeVar('T', bound=ActionOutcome)
+    is_terminal_state: bool
 
 # Define type variables
 StateT = TypeVar('StateT')
@@ -35,7 +30,6 @@ class TrainablePlanner(ABC, Generic[TrainingDataT]):
         pass
 
 class SupervisorPlanner(AbstractPlanner[StateT, ActionT, ResultT]):
-    base_planner: AbstractPlanner[StateT, ActionT, ResultT]
 
     def __init__(self, base_planner: AbstractPlanner[StateT, ActionT, ResultT]):
         super().__init__()
@@ -63,12 +57,6 @@ class AbstractSensor(ABC, Generic[StateT]):
         pass
 
 class AbstractSession(ABC, Generic[StateT, ActionT, ResultT]):
-    limb: AbstractLimb[ActionT, ResultT]
-    goal: str
-    planner: AbstractPlanner[StateT, ActionT, ResultT]
-    sensor: AbstractSensor[StateT]
-    past_actions: List[RecordedAction[StateT, ActionT, ResultT]]
-    recorders: 'List[AbstractSessionRecorder[StateT, ActionT, ResultT]]'
 
     def __init__(self, goal: str, limb: AbstractLimb[ActionT, ResultT], 
             sensor: AbstractSensor[StateT], 
@@ -111,9 +99,7 @@ class AbstractSession(ABC, Generic[StateT, ActionT, ResultT]):
         return action_result
     
     def start(self):
-        while (not self.past_actions or
-               self.past_actions[-1].result.outcome not in [ActionOutcome.GOAL_ACHIEVED,
-                                                       ActionOutcome.GOAL_UNREACHABLE]):
+        while not self.past_actions or not self.past_actions[-1].result.is_terminal_state:
             self.step()
 
 class AbstractSessionRecorder(ABC, Generic[StateT, ActionT, ResultT]):

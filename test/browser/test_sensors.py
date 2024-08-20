@@ -1,9 +1,8 @@
 from bs4 import BeautifulSoup
-from src.limb.browser.sensor import BrowserSensor
+from cerebellum.limb.browser.sensor import BrowserSensor
 
 def test_collapse_single_child_to_parent():
-    extractor = BrowserSensor()
-
+    
     # Read the pre-collapse HTML
     pre_html = '''
 <!DOCTYPE html>
@@ -132,7 +131,7 @@ def test_collapse_single_child_to_parent():
     soup = BeautifulSoup(pre_html, 'html.parser')
 
     # Apply the collapse_single_child_to_parent method
-    collapsed_soup = extractor.collapse_single_child_to_parent(soup)
+    collapsed_soup = BrowserSensor.collapse_single_child_to_parent(soup)
 
     # Parse both the collapsed and expected HTML to normalize them
     actual = collapsed_soup.prettify()
@@ -143,7 +142,6 @@ def test_collapse_single_child_to_parent():
 
 
 def test_remove_empty_elements():
-    extractor = VisibleHTMLSensor()
     pre_html = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -196,7 +194,7 @@ def test_remove_empty_elements():
     soup = BeautifulSoup(pre_html, 'html.parser')
 
     # Apply the remove_empty_elements method
-    cleaned_soup = extractor.remove_empty_elements(soup)
+    cleaned_soup = BrowserSensor.remove_empty_elements(soup)
 
     # Parse both the cleaned and expected HTML to normalize them
     actual = cleaned_soup.prettify()

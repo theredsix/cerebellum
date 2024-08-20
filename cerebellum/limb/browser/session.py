@@ -1,9 +1,9 @@
 from typing import List
 from playwright.sync_api import Page
-from src.limb.browser.limb import BrowserLimb
-from src.limb.browser.sensor import BrowserSensor
-from src.limb.browser.types import BrowserAction, BrowserActionResult, BrowserState
-from src.core_abstractions import (
+from cerebellum.limb.browser.limb import BrowserLimb
+from cerebellum.limb.browser.sensor import BrowserSensor
+from cerebellum.limb.browser.types import BrowserAction, BrowserActionResult, BrowserState
+from cerebellum.core_abstractions import (
     AbstractLimb, AbstractPlanner, AbstractSensor, AbstractSession, AbstractSessionRecorder, RecordedAction
 )
 

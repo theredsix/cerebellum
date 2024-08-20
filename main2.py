@@ -1,6 +1,6 @@
-from src.gemini import GoogleGeminiReasoner
-from src.session import ActiveBrowserSession
-from src.recorders import PageActionRecorder, FileSessionRecorder, PausingRecorder
+from cerebellum.limb.browser.planner import GoogleGeminiReasoner
+from cerebellum.limb.browser.session import ActiveBrowserSession
+from cerebellum.recorders import PageActionRecorder, FileSessionRecorder, PausingRecorder
 from playwright.sync_api import sync_playwright
 import os
 

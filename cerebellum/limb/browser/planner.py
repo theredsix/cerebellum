@@ -3,9 +3,9 @@ import requests
 import json
 from playwright.sync_api import Page
 from typing import List, Dict, Any
-from src.core_abstractions import AbstractPlanner, SupervisorPlanner
-from src.limb.browser.session import PageAction, PageState, RecordedAction, AbstractReasoner
-from src.limb.browser.types import BrowserAction, BrowserActionResult, BrowserState
+from cerebellum.core_abstractions import AbstractPlanner, SupervisorPlanner
+from cerebellum.limb.browser.session import PageAction, PageState, RecordedAction, AbstractReasoner
+from cerebellum.limb.browser.types import BrowserAction, BrowserActionResult, BrowserState
 
 tools = [
              {
@@ -108,8 +108,6 @@ tool_config = {
 }
 
 class HumanPlanner(SupervisorPlanner[BrowserState, BrowserAction, BrowserActionResult]):
-    display_page: Page
-
     def __init__(self, base_planner: AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult], display_page: Page):
         super().__init__(
             base_planner=base_planner

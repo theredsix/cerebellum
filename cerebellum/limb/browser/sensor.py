@@ -1,9 +1,9 @@
 import re
 import cssutils
 from html.parser import HTMLParser
-from bs4 import BeautifulSoup, NavigableString, PageElement, Tag
-from src.core_abstractions import AbstractSensor
-from src.limb.browser.types import BrowserState
+from bs4 import BeautifulSoup, Comment, NavigableString, PageElement, Tag
+from cerebellum.core_abstractions import AbstractSensor
+from cerebellum.limb.browser.types import BrowserState
 from playwright.sync_api import Page
 
 class SingleLineParser(HTMLParser):
@@ -56,27 +56,29 @@ class SingleLineParser(HTMLParser):
             return f'{key}="{value}"'
 
 class BrowserSensor(AbstractSensor[BrowserState]):
-    page: Page
 
     def __init__(self, page: Page):
         self.page = page
 
-    def minify_html(self, html_string):
+    @classmethod
+    def minify_html(cls, html_string):
         parser = SingleLineParser()
         parser.feed(html_string)
         single_line = parser.get_single_line_html()
         # Remove extra whitespace between tags
         return re.sub(r'>\s+<', '><', single_line)
     
-    def get_direct_descendants(self, element: Tag) -> int:
+    @classmethod
+    def get_direct_descendants(cls, element: Tag) -> int:
         return [child for child in element.children if isinstance(child, Tag) or (isinstance(child, NavigableString) and child.strip())]
     
-    def collapse_single_child_to_parent(self, soup: BeautifulSoup) -> BeautifulSoup:
+    @classmethod
+    def collapse_single_child_to_parent(cls, soup: BeautifulSoup) -> BeautifulSoup:
         def dfs_collapse(element: PageElement):
             if not element or not hasattr(element, 'children') or not hasattr(element, 'name'):
                 return
             
-            saved_children = self.get_direct_descendants(element)
+            saved_children = BrowserSensor.get_direct_descendants(element)
 
             # Check if this element has only one child
             if element.name in ['div', 'span'] and len(saved_children) == 1:
@@ -98,7 +100,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
 
 
     # Function to check if an element is non-visible
-    def is_non_visible(self, element: Tag) -> bool:
+    @classmethod
+    def is_non_visible(cls, element: Tag) -> bool:
         # Define CSS properties that make elements non-visible
         non_visible_styles = {
             'display': 'none',
@@ -127,12 +130,13 @@ class BrowserSensor(AbstractSensor[BrowserState]):
 
         return False
 
-    def remove_nonvisible_elements(self, soup: BeautifulSoup) -> BeautifulSoup:
+    @classmethod
+    def remove_nonvisible_elements(cls, soup: BeautifulSoup) -> BeautifulSoup:
         # Select all elements with style attribute
         tags_with_css = soup.select('[style]')
         
         for element in tags_with_css:
-            if self.is_non_visible(element):
+            if cls.is_non_visible(element):
                 element.decompose()
         
         # Remove elements with zero height or width
@@ -142,7 +146,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         
         return soup
 
-    def remove_unused_css(self, soup: BeautifulSoup) -> BeautifulSoup:
+    @classmethod
+    def remove_unused_css(cls, soup: BeautifulSoup) -> BeautifulSoup:
         # Find all style tags
         style_tags = soup.find_all('style')
         
@@ -180,7 +185,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         
         return soup
 
-    def remove_unnecessary_attributes(self, soup: BeautifulSoup) -> BeautifulSoup:
+    @classmethod
+    def remove_unnecessary_attributes(cls, soup: BeautifulSoup) -> BeautifulSoup:
         allowed_attributes = [
             'role', 
             'aria-label', 
@@ -221,8 +227,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         
         return soup
 
-
-    def remove_empty_elements(self, soup: BeautifulSoup) -> BeautifulSoup:
+    @classmethod
+    def remove_empty_elements(cls, soup: BeautifulSoup) -> BeautifulSoup:
         def dfs_remove_empty(element: PageElement):
             if not element or not hasattr(element, 'contents') or not hasattr(element, 'name'):
                 return
@@ -232,7 +238,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
                 dfs_remove_empty(child)          
 
             # Check if this element has only one child
-            if element.name not in ['head', 'body'] and len(self.get_direct_descendants(element)) == 0:
+            if element.name not in ['head', 'body'] and len(cls.get_direct_descendants(element)) == 0:
                 element.decompose()
             
 
@@ -242,7 +248,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
 
         return soup
 
-    def get_elements_in_viewport(self, page: Page):
+    @classmethod
+    def get_elements_in_viewport(cls, page: Page):
         elements_in_viewport = page.evaluate("""
         () => {
             const viewport = {
@@ -304,7 +311,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         viewport_html = f'''<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>{page.title()}</title></head>{''.join(elements_in_viewport)}</html>'''
         return viewport_html
 
-    def empty_svg(self, soup):
+    @classmethod
+    def empty_svg(cls, soup):
         for svg in soup.find_all('svg'):
             # Store attributes
             attrs = svg.attrs
@@ -321,18 +329,18 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         # Parse the content with BeautifulSoup
         soup = BeautifulSoup(content, 'html.parser')
 
-        self.remove_nonvisible_elements(soup)
+        BrowserSensor.remove_nonvisible_elements(soup)
 
-        self.remove_unnecessary_attributes(soup)
+        BrowserSensor.remove_unnecessary_attributes(soup)
 
-        self.remove_empty_elements(soup)
+        BrowserSensor.remove_empty_elements(soup)
 
-        self.collapse_single_child_to_parent(soup)
+        BrowserSensor.collapse_single_child_to_parent(soup)
 
         # # # Remove unused CSS
         # soup = remove_unused_css(soup)
 
-        self.empty_svg(soup)
+        BrowserSensor.empty_svg(soup)
 
         # # Remove all script and meta tags
         for tag in soup(["script", "meta", "link", "style"]):
@@ -346,11 +354,11 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         visible_html = soup.prettify()
 
         # Further compress HTML to one line to reduce token count
-        visible_html = self.minify_html(visible_html)
+        visible_html = BrowserSensor.minify_html(visible_html)
         
         return BrowserState(
             html=visible_html,
-            raw_html=self.minify_html(content),
+            raw_html=BrowserSensor.minify_html(content),
             screenshot_full=self.page.screenshot(full_page=True),
             screenshot_viewport=self.page.screenshot(),
             url=self.page.url

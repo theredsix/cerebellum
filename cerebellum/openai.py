@@ -1,6 +1,6 @@
 import openai
-from src.reasoner import Reasoner
-from src.openapi import tools
+from cerebellum.reasoner import Reasoner
+from cerebellum.limb.browser.openapi import tools
 
 class OpenAIReasoner(Reasoner):
     def __init__(self, api_key: str):

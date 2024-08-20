@@ -5,7 +5,7 @@ import zipfile
 from pathlib import Path
 from bs4 import BeautifulSoup
 from playwright.sync_api import Page
-from src.core_abstractions import AbstractBrowserSession, AbstractSessionRecorder, ActionOutcome, ActionResult, PageAction, PageState, RecordedAction
+from cerebellum.core_abstractions import AbstractBrowserSession, AbstractSessionRecorder, ActionOutcome, ActionResult, PageAction, PageState, RecordedAction
 
 class FileSessionRecorder(AbstractSessionRecorder):
     file_path: str
