@@ -4,7 +4,7 @@ import json
 from playwright.sync_api import Page
 from typing import List, Dict, Any
 from cerebellum.core_abstractions import AbstractPlanner, SupervisorPlanner, RecordedAction
-from cerebellum.limb.browser.types import BrowserAction, BrowserActionResult, BrowserState
+from cerebellum.limb.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult, BrowserState
 
 tools = [
              {
@@ -17,17 +17,35 @@ tools = [
                             "type": "string",
                             "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
                         },
-                        "css_selector": {
-                            "type": "string",
-                            "description": "Specifies the CSS selector of the input element to fill. This string is a CSS selector that can be passed to jQuery. Only supports html tag, class and id attributes. Cannot use descendant, child or sibling selectors.",
+                        "target_element": {
+                            "type": "object",
+                            "description": "The target element to click",
+                            "properties": {
+                                "tag": {
+                                    "type": "string",
+                                    "description": "The HTML tag name of the target element (e.g., 'button', 'a', 'div')"
+                                },
+                                "css_classes": {
+                                    "type": "array",
+                                    "description": "CSS classes of the target element. Always include all css classnames of the target element.",
+                                    "items": {
+                                        "type": "string",
+                                    }
+                                },
+                                "element_id": {
+                                    "type": "string",
+                                    "description": "The id attribute of the target element. Do not include this property if the element does not have an id.",
+                                }
+                            },
+                            "required": ["tag"],        
                         }
                     },
-                    "required": ["reasoning", "css_selector"],
+                    "required": ["reasoning", "target_element"],
                 },
             },
             {
                 "name": "fill",
-                "description": "Fill in the input field with the specified text",
+                "description": 'Fill in the <input>, <textarea>, or [contenteditable] element with the specified text. Do not target input[type="hidden"] elements',
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -35,9 +53,27 @@ tools = [
                             "type": "string",
                             "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
                         },
-                        "css_selector": {
-                            "type": "string",
-                            "description": "Specifies the CSS selector of the input element to fill. This string is a CSS selector that can be passed to jQuery. Only supports html tag, class and id attributes. Cannot use descendant, child or sibling selectors.",
+                        "target_element": {
+                            "type": "object",
+                            "description": "The target element to click",
+                            "properties": {
+                                "tag": {
+                                    "type": "string",
+                                    "description": "The HTML tag name of the target element (e.g., 'button', 'a', 'div')"
+                                },
+                                "css_classes": {
+                                    "type": "array",
+                                    "description": "CSS classes of the target element. Always include all css classnames of the target element.",
+                                    "items": {
+                                        "type": "string",
+                                    }
+                                },
+                                "element_id": {
+                                    "type": "string",
+                                    "description": "The id attribute of the target element. Do not include this property if the element does not have an id.",
+                                }
+                            },
+                            "required": ["tag"],        
                         },
                         "text": {
                             "type": "string",
@@ -48,7 +84,7 @@ tools = [
                             "description": "If true, the input will be filled and the enter key will be pressed. This is helpful for form or search submissions",
                         },
                     },
-                    "required": ["reasoning", "css_selector", "text", "press_enter"],
+                    "required": ["reasoning", "target_element", "text", "press_enter"],
                 },
             },
             {
@@ -61,12 +97,30 @@ tools = [
                             "type": "string",
                             "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
                         },
-                        "css_selector": {
-                            "type": "string",
-                            "description": "Specifies the CSS selector of the input element to fill. This string is a CSS selector that can be passed to jQuery. Only supports html tag, class and id attributes. Cannot use descendant, child or sibling selectors.",
+                        "target_element": {
+                            "type": "object",
+                            "description": "The target element to click",
+                            "properties": {
+                                "tag": {
+                                    "type": "string",
+                                    "description": "The HTML tag name of the target element (e.g., 'button', 'a', 'div')"
+                                },
+                                "css_classes": {
+                                    "type": "array",
+                                    "description": "CSS classes of the target element. Always include all css classnames of the target element.",
+                                    "items": {
+                                        "type": "string",
+                                    }
+                                },
+                                "element_id": {
+                                    "type": "string",
+                                    "description": "The id attribute of the target element. Do not include this property if the element does not have an id.",
+                                }
+                            },
+                            "required": ["tag"],        
                         },
                     },
-                    "required": ["reasoning", "css_selector"],
+                    "required": ["reasoning", "target_element"],
                 },
             },
             {
@@ -206,14 +260,14 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
         )
 
 class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult]):
-    api_key: str
 
     def __init__(self, api_key: str, model_name: str = "gemini-1.5-pro-latest"):
         self.api_key = api_key
         self.model_name = model_name
+        self.temperature = 0
 
 
-    def generate_content(self, system_instructions: str, contents: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def generate_content(self, system_instructions: str, contents: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature=0) -> Dict[str, Any]:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
         
         headers = {
@@ -232,7 +286,10 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                     "function_declarations": tools
                 }
             ],
-            "tool_config": tool_config
+            "tool_config": tool_config,
+            "generation_config": {
+                "temperature": temperature
+            }
         }
         
         response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -333,22 +390,21 @@ Given a webpage's HTML and full + viewport screenshot, decide the best action to
 Key considerations:
 * Only consider the goal achieved if and only if the current state and function call history achieves ALL parts of the goal
 * A goal is not achieved if you believe there is one or more additional action necessary (i.e clicking, filling, submitting)
+* Exclude <input type="hidden"> elements from target elements
 * Verify search results align with the goal; don't assume accuracy
 * You are provided with a "viewport" view of the webpage and a full screenshot of the entire webpage.
-* Always include the class and id attributes of the element you are trying to select
-* Do not use descendant, child or sibling CSS selectors.
+* Always include the target element's id attribute if it exists.
+* Always include all css classnames of the target element.
 * If you believe the goal cannot be achieved, call the "unreachable" function. 
-* If you believe the HTML and viewport screenshot shows that the goal has already been achieved, call the "achieved" function.
+* If you believe the HTML and viewport screenshot shows that the goal has already been achieved without any further action from the user or you, call the "achieved" function.
 * Always explain your reasoning the "reasoning" argument to the function called.
 * Always press ENTER after filling the last or only input field.
 * Solve captcha pages if they come up.
-* If you are unsure of which input to fill or button to click, choose a child of the most correlated element
 
 Goal: 
 {goal}
 '''
         return system_prompt
-
 
     def get_next_action(self, goal: str, current_page: BrowserState, 
                         session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]) -> BrowserAction:
@@ -359,7 +415,17 @@ Goal:
         # Append current_state_msg to history
         history.append(current_state_msg)
 
-        response = self.generate_content(system_prompt, history, tools)
+        # Increase temperature on failures
+        if session_history:
+            last_action_result = session_history[-1]
+            if last_action_result.result.outcome == BrowserActionOutcome['SUCCESS']:
+                self.temperature = 0
+            else:
+                self.temperature = min(1.0, self.temperature + 0.3)
+
+        response = self.generate_content(system_prompt, history, tools, self.temperature)
+
+        print(response)
 
         function_call = response['candidates'][0]['content']['parts'][0]['functionCall']
         token_count = response['usageMetadata']['totalTokenCount']

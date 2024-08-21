@@ -8,56 +8,93 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
         super().__init__()
         self.page = page
 
+    @classmethod
+    def target_element_to_css_selector(self, target_element):
+        if target_element.get('element_id'):
+            return f"#{target_element['element_id']}"
+        
+        selector_parts = []
+        
+        selector_parts.append(target_element['tag'])
+        
+        if 'css_classes' in target_element:
+            selector_parts.extend([f".{cls}" for cls in target_element['css_classes']])
+        
+        return ''.join(selector_parts)
+
     def perform_action(self, action: BrowserAction) -> BrowserActionResult:
         
         function_name = action.function
         params = action.args
         outcome: BrowserActionOutcome = None
+        starting_url = self.page.url    
         
         print(f"INTENT: {action.reason}")
 
         # Ensure the css_selector can select an element if provided
-        if 'css_selector' in params:
-            css_selector = params['css_selector']
-            element = self.page.query_selector(css_selector)
-            if element is None:
+        target_element = None
+        if 'target_element' in params:
+            css_selector = BrowserLimb.target_element_to_css_selector(params['target_element'])
+
+            print('css_selector', css_selector)
+            
+            target_element = self.page.query_selector(css_selector)
+
+            if target_element:
+                print('Target element attributes (excluding style):')
+                attributes = target_element.evaluate('el => Object.entries(el.attributes).reduce((acc, [_, attr]) => ({...acc, [attr.name]: attr.value}), {})')
+                for attr, value in attributes.items():
+                    if attr.lower() != 'style':
+                        print(f"  {attr}: {value}")
+            else:
+                print('No target element found, cannot print attributes.')
+
+            print('target_element', target_element)
+            if target_element is None:
                 print(f"Warning: No element found for selector '{css_selector}'")
-                outcome = BrowserActionOutcome['INVALID_CSS_SELECTOR']
+                outcome = BrowserActionOutcome['INVALID_TARGET_ELEMENT']
+
+        after_action_delay = 100
 
         while outcome is None:
             try:
                 match function_name:
                     case "fill":
                         # Ensure the element is fillable
-                        element = self.page.query_selector(params["css_selector"])
-                        css_selector = params["css_selector"]
                         text = params["text"]
                         press_enter = params.get("press_enter", False)
                         print(f"Filling input: selector='{css_selector}', text='{text}', press_enter={press_enter}")
                         try:
-                            self.page.fill(css_selector, text)
+                            target_element.fill(text)
+
+                            # Verify that the target_element has been set to the required text
+                            self.page.wait_for_timeout(100)
+                            actual_text = target_element.input_value()
+                            if actual_text != text:
+                                print(f"Warning: Element text mismatch. Expected '{text}', but got '{actual_text}'")
+                                outcome = BrowserActionOutcome['NONFILLABLE_TARGET_ELEMENT']
+
                             if press_enter:
-                                self.page.press(css_selector, "Enter")
+                                target_element.press("Enter")
+                            
                             outcome = BrowserActionOutcome['SUCCESS']
                         except Exception as e:
                             if "Element is not an <input>" in str(e):
                                 print(f"Error: Element with selector '{css_selector}' is not fillable")
-                                outcome = BrowserActionOutcome['NONFILLABLE_CSS_SELECTOR']
+                                outcome = BrowserActionOutcome['NONFILLABLE_TARGET_ELEMENT']
                             else:
                                 raise  # Re-raise the exception
                     
                     case "click":
-                        css_selector = params["css_selector"]
                         print(f"Clicking element: selector='{css_selector}'")
-                        self.page.click(css_selector)
+                        target_element.click(css_selector)
                         outcome = BrowserActionOutcome['SUCCESS']
-
+                        after_action_delay = 500
                     case "focus":
-                        css_selector = params["css_selector"]
                         print(f"Focusing on element: selector='{css_selector}'")
-                        self.page.focus(css_selector)
+                        target_element.focus(css_selector)
                         outcome = BrowserActionOutcome['SUCCESS']
-                    
+                        after_action_delay = 500
                     case "achieved":
                         print("Goal achieved!")
                         outcome = BrowserActionOutcome['GOAL_ACHIEVED']
@@ -69,10 +106,12 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                 print(f"Timeout error occurred while performing action: {function_name}")
                 outcome = BrowserActionOutcome['TIMEOUT']
 
-        # Inject at least 1 second wait for action to be processed
-        self.page.wait_for_timeout(500)
-        self.page.wait_for_load_state("domcontentloaded")
-        self.page.wait_for_timeout(500)
+        # Always wait 100 milliseconds
+        self.page.wait_for_timeout(after_action_delay)
+
+        # If we caused a navigation, wait for load
+        if (self.page.url != starting_url):
+            self.page.wait_for_load_state("domcontentloaded")
     
         is_terminal_state = outcome in [BrowserActionOutcome['GOAL_ACHIEVED'], BrowserActionOutcome['GOAL_UNREACHABLE']]
         return BrowserActionResult(url=self.page.url, outcome=outcome, is_terminal_state=is_terminal_state)

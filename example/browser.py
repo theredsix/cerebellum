@@ -15,7 +15,7 @@ with sync_playwright() as p:
     context = browser.new_context()
     context.tracing.start(screenshots=True, snapshots=True)
     page = context.new_page()
-    debug_page = context.new_page()
+    # debug_page = context.new_page()
     page.goto("https://www.amazon.com/")
 
     recorders = [FileSessionMemory('session.cere')]

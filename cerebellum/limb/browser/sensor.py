@@ -213,10 +213,11 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             'type', 
             'value', 
             'placeholder',
-            'alt'
+            'alt',
+            'for',
         ]
 
-        allowed_tags = ['svg', 'img', 'button', 'input', 'a', 'textarea', 'select', 'optgroup', 'option']
+        allowed_tags = ['label', 'svg', 'img', 'button', 'input', 'a', 'textarea', 'select', 'optgroup', 'option']
 
         for tag in soup.find_all(True):  # Find all tags
             if tag.name in allowed_tags or tag.attrs.get('draggable') or tag.attrs.get('contenteditable'):

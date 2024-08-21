@@ -4,9 +4,9 @@ from cerebellum.core_abstractions import BaseAction, BaseResult, BaseState
 
 BrowserActionOutcome = {
     'SUCCESS' : "Action performed.",
-    'INVALID_CSS_SELECTOR' : "Action failed. Invalid CSS selector did not match to any ,elements.",
-    'NONFILLABLE_CSS_SELECTOR' : "Action failed. First element targeted by CSS selector ,was not a <input>, <textarea> or [contenteditable].",
-    'TIMEOUT' : "Action failed. Playwright timed out while attempting to perform the ,requested action.",
+    'INVALID_TARGET_ELEMENT' : "Action failed. Target element did not match to any elements.",
+    'NONFILLABLE_TARGET_ELEMENT' : "Action failed. Target element was not able to be filled by the provided value.",
+    'TIMEOUT' : "Action failed. Playwright timed out while attempting to perform the requested action.",
     'GOAL_ACHIEVED' : "Goal achieved.",
     'GOAL_UNREACHABLE' : "Goal is unreachable.",
 }
