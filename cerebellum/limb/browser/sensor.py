@@ -5,7 +5,7 @@ from html.parser import HTMLParser
 from bs4 import BeautifulSoup, Comment, NavigableString, PageElement, Tag
 from cerebellum.core_abstractions import AbstractSensor
 from cerebellum.limb.browser.types import BrowserState
-from playwright.sync_api import Page
+from playwright.sync_api import Page, TimeoutError
 import logging
 
 cssutils.log.setLevel(logging.FATAL)
@@ -64,6 +64,54 @@ class BrowserSensor(AbstractSensor[BrowserState]):
     def __init__(self, page: Page):
         self.page = page
 
+    # TODO: Create helper functions for finding clickable and fillable elements on the page
+    @classmethod
+    def find_clickable_elements(cls, soup: BeautifulSoup):
+        """Find all clickable elements on the page."""
+        return soup.select('a, button, [onclick], [role="button"], input[type="submit"], input[type="button"]')
+
+    @classmethod
+    def find_fillable_elements(cls, soup: BeautifulSoup):
+        """Find all fillable elements on the page."""
+        fillable_elements = []
+        for element in soup.find_all(['input', 'textarea']):
+            if element.name == 'input':
+                input_type = element.get('type', '').lower()
+                if input_type not in ['submit', 'button', 'hidden']:
+                    fillable_elements.append(element)
+            else:  # textarea
+                fillable_elements.append(element)
+        
+        # Add elements with contenteditable="true"
+        fillable_elements.extend(soup.find_all(attrs={'contenteditable': 'true'}))
+        
+        return fillable_elements
+    @classmethod
+    def build_css_selector(cls, element: Tag) -> str:
+        """
+        Build a CSS selector for a given Tag.
+        Prioritizes id over classnames.
+        """
+        selector_parts = []
+
+        # Get the tag name
+        tag_name = element.name
+        selector_parts.append(tag_name)
+
+        # Add id if it exists (highest priority)
+        element_id = element.get('id')
+        if element_id:
+            selector_parts.append(f"#{element_id}")
+            return ''.join(selector_parts)  # Return immediately if id is found
+
+        # Add classes if they exist
+        element_classes = element.get('class')
+        if element_classes:
+            class_selector = '.'.join(element_classes)
+            selector_parts.append(f".{class_selector}")
+
+        return ''.join(selector_parts)
+    
     @classmethod
     def minify_html(cls, html_string):
         parser = SingleLineParser()
@@ -240,10 +288,21 @@ class BrowserSensor(AbstractSensor[BrowserState]):
 
             # Process children first (depth-first)
             for child in list(element.contents):
-                dfs_remove_empty(child)          
+                dfs_remove_empty(child)
+
+            can_be_empty = [
+                'head',
+                'body',
+                'a',
+                'button',
+                'input',
+                'textarea',
+                'select',
+                'option'
+            ]
 
             # Check if this element has only one child
-            if element.name not in ['head', 'body'] and len(cls.get_direct_descendants(element)) == 0:
+            if element.name not in can_be_empty and len(cls.get_direct_descendants(element)) == 0:
                 element.decompose()
             
 
@@ -326,9 +385,31 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             # Restore attributes
             svg.attrs = attrs
         return soup
+    
+    @classmethod
+    def get_screenshot(cls, page: Page, full_page: bool = False) -> str:
+        try_count = 1
+
+        screenshot_bytes = None
+        while try_count <= 3:
+            try:
+                page.wait_for_load_state('domcontentloaded')
+                timeout = (1000+try_count*2000)
+                screenshot_bytes = page.screenshot(full_page=full_page, type='jpeg', quality=85, timeout=timeout)
+                break
+            except TimeoutError:
+                print('Screenshot timed out on try', try_count)
+            finally:
+                try_count += 1
+
+        if screenshot_bytes is not None:
+            return base64.b64encode(screenshot_bytes).decode('utf-8')
+        else:
+            return '' # Fail open
 
     def sense(self):
         page = self.page
+        page.wait_for_load_state('domcontentloaded')
 
         # # Get the page content
         content = page.content()
@@ -362,12 +443,24 @@ class BrowserSensor(AbstractSensor[BrowserState]):
 
         # Further compress HTML to one line to reduce token count
         visible_html = BrowserSensor.minify_html(visible_html)
+
+        fillable_elements = BrowserSensor.find_fillable_elements(soup)
+        clickable_elements = BrowserSensor.find_clickable_elements(soup)
+
+        fillable_selectors = list(set([BrowserSensor.build_css_selector(x) for x in fillable_elements]))
+        clickable_selectors = list(set([BrowserSensor.build_css_selector(x) for x in clickable_elements]))
         
+        screenshot_full=BrowserSensor.get_screenshot(page, full_page=True)
+        screenshot_viewport=BrowserSensor.get_screenshot(page, full_page=False)
+        
+
         return BrowserState(
             html=visible_html,
             raw_html=BrowserSensor.minify_html(content),
-            screenshot_full=base64.b64encode(self.page.screenshot(full_page=True, type='jpeg', quality=85)).decode('utf-8'),
-            screenshot_viewport=base64.b64encode(self.page.screenshot(full_page=False, type='jpeg', quality=85)).decode('utf-8'),
-            url=self.page.url
+            screenshot_full=screenshot_full,
+            screenshot_viewport=screenshot_viewport,
+            url=self.page.url,
+            fillable_selectors=fillable_selectors,
+            clickable_selectors=clickable_selectors,
         )
 

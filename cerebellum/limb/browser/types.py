@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import List
 from cerebellum.core_abstractions import BaseAction, BaseResult, BaseState
 
 BrowserActionOutcome = {
@@ -18,6 +19,8 @@ class BrowserState(BaseState):
     screenshot_full: str
     screenshot_viewport: str
     url: str
+    fillable_selectors: List[str]
+    clickable_selectors: List[str]
 
 @dataclass
 class BrowserAction(BaseAction):

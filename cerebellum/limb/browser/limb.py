@@ -33,23 +33,13 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
 
         # Ensure the css_selector can select an element if provided
         target_element = None
-        if 'target_element' in params:
-            css_selector = BrowserLimb.target_element_to_css_selector(params['target_element'])
+        if 'css_selector' in params:
+            css_selector = params['css_selector']
 
             print('css_selector', css_selector)
             
             target_element = self.page.query_selector(css_selector)
 
-            if target_element:
-                print('Target element attributes (excluding style):')
-                attributes = target_element.evaluate('el => Object.entries(el.attributes).reduce((acc, [_, attr]) => ({...acc, [attr.name]: attr.value}), {})')
-                for attr, value in attributes.items():
-                    if attr.lower() != 'style':
-                        print(f"  {attr}: {value}")
-            else:
-                print('No target element found, cannot print attributes.')
-
-            print('target_element', target_element)
             if target_element is None:
                 print(f"Warning: No element found for selector '{css_selector}'")
                 outcome = BrowserActionOutcome['INVALID_TARGET_ELEMENT']
@@ -87,12 +77,12 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                     
                     case "click":
                         print(f"Clicking element: selector='{css_selector}'")
-                        target_element.click(css_selector)
+                        target_element.click()
                         outcome = BrowserActionOutcome['SUCCESS']
                         after_action_delay = 500
                     case "focus":
                         print(f"Focusing on element: selector='{css_selector}'")
-                        target_element.focus(css_selector)
+                        target_element.focus()
                         outcome = BrowserActionOutcome['SUCCESS']
                         after_action_delay = 500
                     case "achieved":

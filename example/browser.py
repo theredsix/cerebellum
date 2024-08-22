@@ -29,4 +29,6 @@ with sync_playwright() as p:
 
     session.start()
 
+    wait_for_input()
+
     browser.close()

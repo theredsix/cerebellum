@@ -17,30 +17,12 @@ tools = [
                             "type": "string",
                             "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
                         },
-                        "target_element": {
-                            "type": "object",
-                            "description": "The target element to click",
-                            "properties": {
-                                "tag": {
-                                    "type": "string",
-                                    "description": "The HTML tag name of the target element (e.g., 'button', 'a', 'div')"
-                                },
-                                "css_classes": {
-                                    "type": "array",
-                                    "description": "CSS classes of the target element. Always include all css classnames of the target element.",
-                                    "items": {
-                                        "type": "string",
-                                    }
-                                },
-                                "element_id": {
-                                    "type": "string",
-                                    "description": "The id attribute of the target element. Do not include this property if the element does not have an id.",
-                                }
-                            },
-                            "required": ["tag"],        
+                        "css_selector": {
+                            "type": "string",
+                            "description": "A CSS selector targeting the element to click, the target element MUST match a css selector from 'Clickable Elements'",
                         }
                     },
-                    "required": ["reasoning", "target_element"],
+                    "required": ["reasoning", "css_selector"],
                 },
             },
             {
@@ -53,27 +35,9 @@ tools = [
                             "type": "string",
                             "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
                         },
-                        "target_element": {
-                            "type": "object",
-                            "description": "The target element to click",
-                            "properties": {
-                                "tag": {
-                                    "type": "string",
-                                    "description": "The HTML tag name of the target element (e.g., 'button', 'a', 'div')"
-                                },
-                                "css_classes": {
-                                    "type": "array",
-                                    "description": "CSS classes of the target element. Always include all css classnames of the target element.",
-                                    "items": {
-                                        "type": "string",
-                                    }
-                                },
-                                "element_id": {
-                                    "type": "string",
-                                    "description": "The id attribute of the target element. Do not include this property if the element does not have an id.",
-                                }
-                            },
-                            "required": ["tag"],        
+                        "css_selector": {
+                            "type": "string",
+                            "description": "A CSS selector targeting the element to fill, the target element MUST match a css selector from 'Fillable Elements'",
                         },
                         "text": {
                             "type": "string",
@@ -81,10 +45,10 @@ tools = [
                         },
                         "press_enter": {
                             "type": "boolean",
-                            "description": "If true, the input will be filled and the enter key will be pressed. This is helpful for form or search submissions",
+                            "description": "If true, the enter key will be pressed after the input is filled. This is helpful for form or search submissions",
                         },
                     },
-                    "required": ["reasoning", "target_element", "text", "press_enter"],
+                    "required": ["reasoning", "css_selector", "text", "press_enter"],
                 },
             },
             {
@@ -97,30 +61,12 @@ tools = [
                             "type": "string",
                             "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
                         },
-                        "target_element": {
-                            "type": "object",
-                            "description": "The target element to click",
-                            "properties": {
-                                "tag": {
-                                    "type": "string",
-                                    "description": "The HTML tag name of the target element (e.g., 'button', 'a', 'div')"
-                                },
-                                "css_classes": {
-                                    "type": "array",
-                                    "description": "CSS classes of the target element. Always include all css classnames of the target element.",
-                                    "items": {
-                                        "type": "string",
-                                    }
-                                },
-                                "element_id": {
-                                    "type": "string",
-                                    "description": "The id attribute of the target element. Do not include this property if the element does not have an id.",
-                                }
-                            },
-                            "required": ["tag"],        
+                        "css_selector": {
+                            "type": "string",
+                            "description": "A CSS selector targeting the element to focus",
                         },
                     },
-                    "required": ["reasoning", "target_element"],
+                    "required": ["reasoning", "css_selector"],
                 },
             },
             {
@@ -292,7 +238,11 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
             }
         }
         
+        print('Calling Gemini')
+        
         response = requests.post(url, headers=headers, data=json.dumps(payload))
+
+        print(response)
 
         return response.json()
 
@@ -375,9 +325,13 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                 {"text": f"Viewport screenshot"},
             ])
 
+        clickable_selectors = '\n'.join(state.clickable_selectors)
+        fillable_selectors = '\n'.join(state.fillable_selectors)
         chat_message["parts"].extend([
             {"text": f"URL: {state.url}"},
             {"text": f"HTML:\n{state.html}"},
+            {"text": f"Clickable Elements:\n{clickable_selectors}"},
+            {"text": f"Fillable Elements:\n{fillable_selectors}"},
         ])
 
         return chat_message
@@ -390,11 +344,15 @@ Given a webpage's HTML and full + viewport screenshot, decide the best action to
 Key considerations:
 * Only consider the goal achieved if and only if the current state and function call history achieves ALL parts of the goal
 * A goal is not achieved if you believe there is one or more additional action necessary (i.e clicking, filling, submitting)
-* Exclude <input type="hidden"> elements from target elements
 * Verify search results align with the goal; don't assume accuracy
 * You are provided with a "viewport" view of the webpage and a full screenshot of the entire webpage.
-* Always include the target element's id attribute if it exists.
-* Always include all css classnames of the target element.
+* When selecting elements, use the following priority order for CSS selectors:
+  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
+  2. Unique class-based selectors
+  3. Attribute selectors
+  4. Combination of tag and class/attribute
+* Target element argument of click() functionCall must match a css selector from 'Clickable Elements'
+* Target element argument of fill() functionCall must match a css selector from 'Fillable Elements'
 * If you believe the goal cannot be achieved, call the "unreachable" function. 
 * If you believe the HTML and viewport screenshot shows that the goal has already been achieved without any further action from the user or you, call the "achieved" function.
 * Always explain your reasoning the "reasoning" argument to the function called.
