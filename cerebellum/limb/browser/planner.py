@@ -1,4 +1,6 @@
+import html
 import json
+from bs4 import BeautifulSoup
 import requests
 import json
 from playwright.sync_api import Page
@@ -19,7 +21,11 @@ tools = [
                         },
                         "css_selector": {
                             "type": "string",
-                            "description": "A CSS selector targeting the element to click, the target element MUST match a css selector from 'Clickable Elements'",
+                            "description": '''A CSS selector targeting the element to click, the target element MUST match a css selector from 'Clickable Elements'. use the following priority order for CSS selectors:
+  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
+  2. Unique class-based selectors
+  3. Attribute selectors
+  4. Combination of tag and class/attribute''',
                         }
                     },
                     "required": ["reasoning", "css_selector"],
@@ -37,7 +43,11 @@ tools = [
                         },
                         "css_selector": {
                             "type": "string",
-                            "description": "A CSS selector targeting the element to fill, the target element MUST match a css selector from 'Fillable Elements'",
+                            "description": '''A CSS selector targeting the element to fill, the target element MUST match a css selector from 'Fillable Elements'. use the following priority order for CSS selectors:
+  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
+  2. Unique class-based selectors
+  3. Attribute selectors
+  4. Combination of tag and class/attribute''',
                         },
                         "text": {
                             "type": "string",
@@ -63,7 +73,11 @@ tools = [
                         },
                         "css_selector": {
                             "type": "string",
-                            "description": "A CSS selector targeting the element to focus",
+                            "description": '''A CSS selector targeting the element to focus. Use the following priority order for CSS selectors:
+  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
+  2. Unique class-based selectors
+  3. Attribute selectors
+  4. Combination of tag and class/attribute''',
                         },
                     },
                     "required": ["reasoning", "css_selector"],
@@ -115,6 +129,10 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
     
     def review_action(self, recommended_action: BrowserAction, goal: str, current_state: BrowserState, 
         past_actions: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]) -> BrowserAction:
+
+        soup = BeautifulSoup(current_state.html, 'html.parser')
+        pretty_html = html.escape(soup.prettify())
+        
         # Create a simple HTML interface for displaying and overwriting recommended actions
         html_content = f"""
         <!DOCTYPE html>
@@ -130,57 +148,73 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
                 #recommended-action, #custom-action {{ margin-bottom: 20px; padding: 10px; border: 1px solid #ddd; }}
                 label {{ display: block; margin-top: 10px; }}
                 input[type="text"], select {{ width: 100%; padding: 5px; margin-top: 5px; }}
-                button {{ background-color: #4CAF50; color: white; padding: 10px 15px; border: none; cursor: pointer; }}
+                button {{ background-color: #4CAF50; color: white; padding: 10px 15px; border: none; cursor: pointer; margin-right: 10px; display: block; }}
             </style>
         </head>
         <body>
             <h1>Action Review</h1>
             <div id="recommended-action">
                 <h2>Recommended Action</h2>
-                <p id="rec-function"></p>
-                <p id="rec-reasoning"></p>
-                <p id="rec-css-selector"></p>
-                <p id="rec-text"></p>
+                <p id="rec-function">Function: {html.escape(recommended_action.function)}</p>
+                <p id="rec-reasoning">Reasoning: {html.escape(recommended_action.reason)}</p>
+                <p id="rec-css-selector">CSS Selector: {html.escape(recommended_action.args.get('css_selector', 'N/A'))}</p>
+                <p id="rec-text">Text: {html.escape(recommended_action.args.get('text', 'N/A'))}</p>
+                <button onclick="continueRecommendedAction()">Continue with Recommended Action</button>
             </div>
             <div id="custom-action">
                 <h2>Custom Action</h2>
                 <label for="function">Function:</label>
                 <select id="function">
-                    <option value="click">Click</option>
-                    <option value="fill">Fill</option>
-                    <option value="focus">Focus</option>
-                    <option value="achieved">Achieved</option>
-                    <option value="unreachable">Unreachable</option>
+                    <option value="click" {('selected' if recommended_action.function == 'click' else '')}>Click</option>
+                    <option value="fill" {('selected' if recommended_action.function == 'fill' else '')}>Fill</option>
+                    <option value="focus" {('selected' if recommended_action.function == 'focus' else '')}>Focus</option>
+                    <option value="achieved" {('selected' if recommended_action.function == 'achieved' else '')}>Achieved</option>
+                    <option value="unreachable" {('selected' if recommended_action.function == 'unreachable' else '')}>Unreachable</option>
                 </select>
                 <label for="reasoning">Reasoning:</label>
-                <input type="text" id="reasoning">
+                <input type="text" id="reasoning" value="{html.escape(recommended_action.reason)}">
                 <label for="css-selector">CSS Selector:</label>
-                <input type="text" id="css-selector">
+                <input type="text" id="css-selector" value="{html.escape(recommended_action.args.get('css_selector', ''))}">
                 <label for="text">Text (for fill action):</label>
-                <input type="text" id="text">
+                <input type="text" id="text" value="{html.escape(recommended_action.args.get('text', ''))}">
                 <label for="press-enter">Press Enter (for fill action):</label>
-                <input type="checkbox" id="press-enter">
+                <input type="checkbox" id="press-enter" {('checked' if recommended_action.args.get('press_enter', False) else '')}>
                 <button onclick="submitCustomAction()">Submit Custom Action</button>
             </div>
+            <h2>Viewport Screenshot</h2>
+            <img src="data:image/png;base64,{current_state.screenshot_viewport}" alt="Viewport Screenshot">
+            
+            <h2>Full Page Screenshot</h2>
+            <img src="data:image/png;base64,{current_state.screenshot_full}" alt="Full Page Screenshot">
+            
+            <h2>Page HTML</h2>
+            <pre>{pretty_html}</pre>
             <script>
-                function updateRecommendedAction(action) {{
-                    $('#rec-function').text('Function: ' + action.function);
-                    $('#rec-reasoning').text('Reasoning: ' + action.args.reasoning);
-                    $('#rec-css-selector').text('CSS Selector: ' + (action.args.css_selector || 'N/A'));
-                    $('#rec-text').text('Text: ' + (action.args.text || 'N/A'));
-                }}
+                window.actionSubmitted = false;
                 function submitCustomAction() {{
                     var action = {{
                         function: $('#function').val(),
                         args: {{
-                            reasoning: $('#reasoning').val(),
                             css_selector: $('#css-selector').val(),
                             text: $('#text').val(),
                             press_enter: $('#press-enter').is(':checked')
-                        }}
+                        }},
+                        reason: $('#reasoning').val(),
                     }};
                     // Send action back to Python
-                    window.pywebview.api.submit_custom_action(JSON.stringify(action));
+                    window.finalAction = JSON.stringify(action);
+                    window.actionSubmitted = true;
+                }}
+
+                function continueRecommendedAction() {{
+                    var action = {{
+                        function: {json.dumps(recommended_action.function)},
+                        args: {json.dumps(recommended_action.args)},
+                        reason: {json.dumps(recommended_action.reason)}
+                    }};
+                    // Send recommended action back to Python
+                    window.finalAction = JSON.stringify(action);
+                    window.actionSubmitted = true;
                 }}
             </script>
         </body>
@@ -190,19 +224,17 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
         # Update the display page with the HTML content
         self.display_page.set_content(html_content)
 
-        # Display the recommended action
-        self.display_page.evaluate(f"updateRecommendedAction({json.dumps(recommended_action)})")
-
         # Wait for user input
-        custom_action = None
-        while custom_action is None:
-            custom_action = self.display_page.evaluate("window.customAction")
+        self.display_page.wait_for_function("() => window.actionSubmitted", timeout=0)
+        action = self.display_page.evaluate("() => window.finalAction")
 
-        # Parse the custom action
-        parsed_action = json.loads(custom_action)
+        print(action)
+        # Parse the action
+        parsed_action = json.loads(action)
         return BrowserAction(
             function=parsed_action['function'],
-            args=parsed_action['args']
+            args=parsed_action['args'],
+            reason=parsed_action['reason']
         )
 
 class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult]):
@@ -300,7 +332,7 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
         return chat_messages
     
 
-    def format_state_into_chat(self, state: BrowserState):
+    def format_state_into_chat(self, state: BrowserState, goal: str):
         chat_message = {
             "role": "user",
             "parts": [
@@ -330,8 +362,9 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
         chat_message["parts"].extend([
             {"text": f"URL: {state.url}"},
             {"text": f"HTML:\n{state.html}"},
-            {"text": f"Clickable Elements:\n{clickable_selectors}"},
-            {"text": f"Fillable Elements:\n{fillable_selectors}"},
+            {"text": f"Clickable Elements\n###\n{clickable_selectors}\n###"},
+            {"text": f"Fillable Elements\n###\n{fillable_selectors}\n###"},
+            # {"text": f"Goal:\n{goal}"},
         ])
 
         return chat_message
@@ -367,7 +400,7 @@ Goal:
     def get_next_action(self, goal: str, current_page: BrowserState, 
                         session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]) -> BrowserAction:
         system_prompt = self.get_system_prompt(goal)
-        current_state_msg = self.format_state_into_chat(current_page)
+        current_state_msg = self.format_state_into_chat(current_page, goal)
         history = self.format_actions_into_chats(session_history)
 
         # Append current_state_msg to history
