@@ -336,17 +336,21 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
         chat_message = {
             "role": "user",
             "parts": [
+            ]
+        }
+
+        if state.screenshot_full:
+            chat_message["parts"].extend([
                 { "inline_data": 
                     {
                         "mime_type":"image/jpeg",
                         "data": state.screenshot_full
                     }
                 },
-                {"text": f"Full webpage screenshot"},
-            ]
-        }
+                {"text": f"Full webpage screenshot"}
+            ])
 
-        if state.screenshot_viewport != state.screenshot_full:
+        if state.screenshot_viewport and state.screenshot_viewport != state.screenshot_full:
             chat_message["parts"].extend([
                 { "inline_data": 
                     {

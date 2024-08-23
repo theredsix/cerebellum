@@ -160,7 +160,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             'visibility': 'hidden',
             'hidden': 'true',
             'aria-hidden': 'true',
-    }
+        }
 
         if element is None or not hasattr(element.attrs, 'get'):
             return False
@@ -387,6 +387,46 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         return soup
     
     @classmethod
+    def get_visible_html(cls, page: Page) -> str:
+        visible_html = page.evaluate("""
+        () => {
+            function isNotVisible(el) {
+                if (!el) return true;
+                const style = window.getComputedStyle(el);
+                return style.display === 'none' 
+                    || style.visibility === 'hidden'
+                    || style.opacity === '0'
+            }
+
+            function stripInvisible(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return document.createTextNode(node.textContent);
+                }
+                if (node.nodeType !== Node.ELEMENT_NODE) {
+                    return null;
+                }
+                if (isNotVisible(node)) {
+                    return null;
+                }
+                const clone = node.cloneNode(false);
+                for (const child of node.childNodes) {
+                    const strippedChild = stripInvisible(child);
+                    if (strippedChild) {
+                        clone.appendChild(strippedChild);
+                    }
+                }
+                return clone;
+            }
+
+            const strippedBody = stripInvisible(document.body);
+            const returnText = strippedBody ? strippedBody.outerHTML : '';
+            return returnText;
+        }
+        """)
+
+        return visible_html
+
+    @classmethod
     def get_screenshot(cls, page: Page, full_page: bool = False) -> str:
         try_count = 1
 
@@ -398,7 +438,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
                 screenshot_bytes = page.screenshot(full_page=full_page, type='jpeg', quality=85, timeout=timeout)
                 break
             except TimeoutError:
-                print('Screenshot timed out on try', try_count)
+                print('Screenshot timed out on try', try_count, full_page)
             finally:
                 try_count += 1
 
@@ -411,24 +451,28 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         page = self.page
         page.wait_for_load_state('domcontentloaded')
 
+        screenshot_full=BrowserSensor.get_screenshot(page, full_page=True)
+        screenshot_viewport=BrowserSensor.get_screenshot(page, full_page=False)
+
         # # Get the page content
-        content = page.content()
+        visible_html = BrowserSensor.get_visible_html(page)
+        page_html = f'<html><head><title>{page.title()}</title></head>{visible_html}</html>'
         
         # Parse the content with BeautifulSoup
-        soup = BeautifulSoup(content, 'html.parser')
+        soup = BeautifulSoup(page_html, 'html.parser')
 
-        BrowserSensor.remove_nonvisible_elements(soup)
-
-        BrowserSensor.remove_unnecessary_attributes(soup)
-
-        BrowserSensor.remove_empty_elements(soup)
+        # BrowserSensor.remove_nonvisible_elements(soup)
 
         BrowserSensor.collapse_single_child_to_parent(soup)
 
-        # # # Remove unused CSS
-        # soup = remove_unused_css(soup)
+        BrowserSensor.remove_empty_elements(soup)
 
         BrowserSensor.empty_svg(soup)
+        
+        BrowserSensor.remove_unnecessary_attributes(soup)
+
+        # # # Remove unused CSS
+        # soup = remove_unused_css(soup)
 
         # # Remove all script and meta tags
         for tag in soup(["script", "meta", "link", "style"]):
@@ -450,13 +494,9 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         fillable_selectors = list(set([BrowserSensor.build_css_selector(x) for x in fillable_elements]))
         clickable_selectors = list(set([BrowserSensor.build_css_selector(x) for x in clickable_elements]))
         
-        screenshot_full=BrowserSensor.get_screenshot(page, full_page=True)
-        screenshot_viewport=BrowserSensor.get_screenshot(page, full_page=False)
-        
-
         return BrowserState(
             html=visible_html,
-            raw_html=BrowserSensor.minify_html(content),
+            raw_html=BrowserSensor.minify_html(page.content()),
             screenshot_full=screenshot_full,
             screenshot_viewport=screenshot_viewport,
             url=self.page.url,

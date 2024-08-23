@@ -13,17 +13,17 @@ def wait_for_input():
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
     context = browser.new_context()
-    context.tracing.start(screenshots=True, snapshots=True)
+    context.tracing.start(screenshots=True)
     page = context.new_page()
     control_page = context.new_page()
     # debug_page = context.new_page()
-    page.goto("https://www.amazon.com/")
+    page.goto("https://maps.google.com/")
 
     recorders = [FileSessionMemory('session.cere')]
     base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
     planner = HumanBrowserPlanner(base_planner, control_page)
 
-    goal = "search for a usb c cable of 10 feet and add one to the cart"
+    goal = "find me directions from SF to LA"
 
     session = BrowserSession(goal, page, planner=planner, recorders=recorders)
 
