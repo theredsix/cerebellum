@@ -17,13 +17,13 @@ with sync_playwright() as p:
     page = context.new_page()
     control_page = context.new_page()
     # debug_page = context.new_page()
-    page.goto("https://maps.google.com/")
+    page.goto("https://www.amazon.com/")
 
     recorders = [FileSessionMemory('session.cere')]
     base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
     planner = HumanBrowserPlanner(base_planner, control_page)
 
-    goal = "find me directions from SF to LA"
+    goal = "Add a USB C to USB C cable to cart"
 
     session = BrowserSession(goal, page, planner=planner, recorders=recorders)
 

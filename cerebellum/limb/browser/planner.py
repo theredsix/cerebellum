@@ -84,6 +84,24 @@ tools = [
                 },
             },
             {
+                "name": "goto",
+                "description": "Navigate the page to a new URL. This is the same as setting 'window.location.href'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "reasoning": {
+                            "type": "string",
+                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
+                        },
+                        "href": {
+                            "type": "string",
+                            "description": "The URL you want the page to navigate to. This is the same as setting 'window.location.href'",
+                        },
+                    },
+                    "required": ["reasoning", "href"],
+                },
+            },
+            {
                 "name": "achieved",
                 "description": "Call this function when the goal has been achieved.",
                 "parameters": {
@@ -395,6 +413,7 @@ Key considerations:
 * Always explain your reasoning the "reasoning" argument to the function called.
 * Always press ENTER after filling the last or only input field.
 * Solve captcha pages if they come up.
+* If your goal appear unreachable, try searching.
 
 Goal: 
 {goal}

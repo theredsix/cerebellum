@@ -1,6 +1,6 @@
 from cerebellum.core_abstractions import AbstractLimb
 from .types import BrowserAction, BrowserActionOutcome, BrowserActionResult
-from playwright.sync_api import Page, TimeoutError
+from playwright.sync_api import Page, TimeoutError, Error
 
 class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
 
@@ -21,6 +21,11 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
             selector_parts.extend([f".{cls}" for cls in target_element['css_classes']])
         
         return ''.join(selector_parts)
+    
+    @classmethod
+    def are_element_handles_equal(cls, handle1, handle2):
+        return handle1.evaluate("(el1, el2) => el1 === el2", handle2)
+
 
     def perform_action(self, action: BrowserAction) -> BrowserActionResult:
         
@@ -34,15 +39,43 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
         # Ensure the css_selector can select an element if provided
         target_element = None
         if 'css_selector' in params:
-            css_selector = params['css_selector']
+            try:
+                css_selector = params['css_selector']
+                print('css_selector', css_selector)
+                
+                if ':contains(' in css_selector:
+                    # Extract the text from the :contains pseudo-class
+                    text_start = css_selector.index(':contains(') + 10
+                    text_end = css_selector.rindex(')')
+                    contains_text = css_selector[text_start:text_end].strip('\\\"\'')
 
-            print('css_selector', css_selector)
+                    print('contains_text', contains_text)
+                    
+                    # Remove the :contains pseudo-class from the selector
+                    base_selector = css_selector[:css_selector.index(':contains')]
+
+                    print('base_selector', base_selector)
+                    
+                    # Use both the base selector and get_by_text to find the element
+                    base_elements = self.page.query_selector_all(base_selector)
+                    text_elements = self.page.get_by_text(contains_text)
+                    
+                    # Find the intersection of the two sets of elements
+                    text_element_handles = [loc.element_handle() for loc in text_elements.all()]
+
+                    print('text_element_handles', text_element_handles)
+                    print('base_elements', base_elements)
+                    
+                    target_element = next((el for el in base_elements if any(BrowserLimb.are_element_handles_equal(el, handle) for handle in text_element_handles)), None)
+                else:
+                    target_element = self.page.query_selector(css_selector)
+            except Error:
+                pass
             
-            target_element = self.page.query_selector(css_selector)
-
             if target_element is None:
                 print(f"Warning: No element found for selector '{css_selector}'")
                 outcome = BrowserActionOutcome['INVALID_TARGET_ELEMENT']
+
 
         after_action_delay = 100
 
@@ -85,6 +118,11 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                         target_element.focus()
                         outcome = BrowserActionOutcome['SUCCESS']
                         after_action_delay = 500
+                    case "goto":
+                        print(f"Navigating to URL: {params['href']}")
+                        self.page.evaluate(f"window.location.href = '{params['href']}'")
+                        outcome = BrowserActionOutcome['SUCCESS']
+                        after_action_delay = 1000  # Longer delay for page load                    
                     case "achieved":
                         print("Goal achieved!")
                         outcome = BrowserActionOutcome['GOAL_ACHIEVED']

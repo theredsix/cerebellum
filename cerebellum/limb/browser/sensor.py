@@ -434,8 +434,9 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         while try_count <= 3:
             try:
                 page.wait_for_load_state('domcontentloaded')
-                timeout = (1000+try_count*2000)
-                screenshot_bytes = page.screenshot(full_page=full_page, type='jpeg', quality=85, timeout=timeout)
+                timeout = (10000+try_count*2000)
+                screenshot_bytes = page.screenshot(
+                    full_page=full_page, type='jpeg', quality=85, timeout=timeout, animations='disabled', caret='initial')
                 break
             except TimeoutError:
                 print('Screenshot timed out on try', try_count, full_page)
@@ -445,6 +446,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         if screenshot_bytes is not None:
             return base64.b64encode(screenshot_bytes).decode('utf-8')
         else:
+            print('Screenshot failed')
             return '' # Fail open
 
     def sense(self):
