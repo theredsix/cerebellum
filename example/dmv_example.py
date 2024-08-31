@@ -1,4 +1,4 @@
-from cerebellum.limb.browser.planner import GeminiBrowserPlanner, HumanBrowserPlanner
+from cerebellum.limb.browser.planner import GeminiBrowserPlanner, HumanBrowserPlanner, OpenAIBrowserPlanner
 from cerebellum.limb.browser.session import BrowserSession
 from cerebellum.memory.file import FileSessionMemory
 from playwright.sync_api import sync_playwright
@@ -20,10 +20,13 @@ with sync_playwright() as p:
     page.goto("https://www.dmv.ca.gov/")
 
     recorders = [FileSessionMemory('session.cere')]
-    base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
+    # base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
+    base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
+    # base_planner = OpenAIBrowserPlanner(api_key="ollama", model_name="mistral-nemo:12b-instruct-2407-q8_0", origin="http://localhost:11434")
+
     planner = HumanBrowserPlanner(base_planner, control_page)
 
-    goal = "Renew vehicle registration for License Plate # 7WDR747"
+    goal = "Complete the vehicle registration renewal for License Plate # 7WDR747"
 
     session = BrowserSession(goal, page, planner=planner, recorders=recorders)
 

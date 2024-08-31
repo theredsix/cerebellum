@@ -25,7 +25,11 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
     @classmethod
     def are_element_handles_equal(cls, handle1, handle2):
         return handle1.evaluate("(el1, el2) => el1 === el2", handle2)
+    
 
+    @classmethod
+    def strip_unnecessary_escaped_char(cls, css_selector: str) -> str:
+        return css_selector.encode().decode('unicode_escape')
 
     def perform_action(self, action: BrowserAction) -> BrowserActionResult:
         
@@ -42,33 +46,21 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
             try:
                 css_selector = params['css_selector']
                 print('css_selector', css_selector)
-                
+
+                css_selector = BrowserLimb.strip_unnecessary_escaped_char(css_selector)
+
                 if ':contains(' in css_selector:
-                    # Extract the text from the :contains pseudo-class
-                    text_start = css_selector.index(':contains(') + 10
-                    text_end = css_selector.rindex(')')
-                    contains_text = css_selector[text_start:text_end].strip('\\\"\'')
+                    # Replace :contains( with :has-text(
+                    css_selector = css_selector.replace(':contains(', ':has-text(')
 
-                    print('contains_text', contains_text)
+                    print('contains_text', css_selector)
                     
-                    # Remove the :contains pseudo-class from the selector
-                    base_selector = css_selector[:css_selector.index(':contains')]
+                print('Final css_selector', css_selector)
 
-                    print('base_selector', base_selector)
-                    
-                    # Use both the base selector and get_by_text to find the element
-                    base_elements = self.page.query_selector_all(base_selector)
-                    text_elements = self.page.get_by_text(contains_text)
-                    
-                    # Find the intersection of the two sets of elements
-                    text_element_handles = [loc.element_handle() for loc in text_elements.all()]
+                target_element = self.page.locator(css_selector).nth(0)
 
-                    print('text_element_handles', text_element_handles)
-                    print('base_elements', base_elements)
-                    
-                    target_element = next((el for el in base_elements if any(BrowserLimb.are_element_handles_equal(el, handle) for handle in text_element_handles)), None)
-                else:
-                    target_element = self.page.query_selector(css_selector)
+                print(target_element)
+
             except Error:
                 pass
             

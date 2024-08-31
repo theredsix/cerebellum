@@ -20,6 +20,7 @@ with sync_playwright() as p:
     page.goto("https://www.amazon.com/")
 
     recorders = [FileSessionMemory('session.cere')]
+    # base_planner = GeminiBrowserPlanner(api_key=os.environ['GCLOUD_API_KEY'], vertex_location=os.environ['GCLOUD_LOCATION'], vertex_project_id=os.environ['GCLOUD_PROJECT_ID'])
     base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
     planner = HumanBrowserPlanner(base_planner, control_page)
 

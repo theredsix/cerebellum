@@ -238,6 +238,19 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         return soup
 
     @classmethod
+    def escape_id_and_classnames(cls, soup: BeautifulSoup) -> BeautifulSoup:
+        chars_to_escape = r'~!@$%^&*()+=,.\/\';:\"?><[]\\{}|`#'
+        escape_pattern = re.compile(f'([{re.escape(chars_to_escape)}])')
+
+        for element in soup.find_all(attrs={'id': True}):
+            element['id'] = escape_pattern.sub(r'\\\1', element['id'])
+
+        for element in soup.find_all(attrs={'class': True}):
+            element['class'] = [escape_pattern.sub(r'\\\1', cls) for cls in element['class']]
+
+        return soup
+
+    @classmethod
     def remove_unnecessary_attributes(cls, soup: BeautifulSoup) -> BeautifulSoup:
         allowed_attributes = [
             'role', 
@@ -436,7 +449,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
                 page.wait_for_load_state('domcontentloaded')
                 timeout = (10000+try_count*2000)
                 screenshot_bytes = page.screenshot(
-                    full_page=full_page, type='jpeg', quality=85, timeout=timeout, animations='disabled', caret='initial')
+                    full_page=full_page, type='jpeg', quality=85, timeout=timeout)
                 break
             except TimeoutError:
                 print('Screenshot timed out on try', try_count, full_page)
@@ -472,6 +485,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         BrowserSensor.empty_svg(soup)
         
         BrowserSensor.remove_unnecessary_attributes(soup)
+
+        BrowserSensor.escape_id_and_classnames(soup)
 
         # # # Remove unused CSS
         # soup = remove_unused_css(soup)
