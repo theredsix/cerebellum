@@ -21,8 +21,8 @@ with sync_playwright() as p:
 
     recorders = [FileSessionMemory('session.cere')]
     # base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
-    base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
-    # base_planner = OpenAIBrowserPlanner(api_key="ollama", model_name="mistral-nemo:12b-instruct-2407-q8_0", origin="http://localhost:11434")
+    # base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
+    base_planner = OpenAIBrowserPlanner(api_key="ollama", model_name="llama3.1:8b-instruct-fp16", origin="http://localhost:11434")
 
     planner = HumanBrowserPlanner(base_planner, control_page)
 
