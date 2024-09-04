@@ -13,11 +13,11 @@ from cerebellum.core_abstractions import AbstractPlanner, RecordedAction
 from cerebellum.limb.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult, BrowserState
 
 def tool_response(text=None, **kwargs):
-    return role("ipython", text, **kwargs)
+    return role("tool_response", text, **kwargs)
 
 class ExtendedLlama3ChatTemplate(Llama3ChatTemplate):
     def get_role_start(self, role_name):
-        if role_name == "tool":
+        if role_name == "tool_response":
             return "<|start_header_id|>ipython<|end_header_id|>\n\n"
         else:
             return super().get_role_start(role_name)
@@ -46,23 +46,24 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
             elif message["role"] == "assistant":
                 with assistant():
                     prompt = prompt + f'{{"reasoning": "{message["function"]["reasoning"]}", "name": "{message["function"]["name"]}", "parameters": "{message["function"]["parameters"]}"}}'
-            elif message["role"] == "function":
+            elif message["role"] == "tool":
                 with tool_response():
-                    response_part = message["parts"][0]["functionResponse"]
-                    prompt = prompt + f'{{"name": "{response_part["name"]}", "outcome": "{response_part["response"]["content"]["outcome"]}", "url": "{response_part["response"]["content"]["url"]}"}}'
+                    response_part = message["content"]
+                    prompt = prompt + f'{{"name": "{response_part["name"]}", "outcome": "{response_part["outcome"]}", "url": "{response_part["url"]}"}}'
 
         # After processing all messages, generate the response
         with assistant():
-            response = prompt + '{ "reasoning": "' + gen('reasoning', stop_regex=',\s*"name"') + \
-                f''', "name": "{select(["click", "fill", "focus", "goto", "achieved", "unreachable"], name="name")}"'''
+            response = prompt + '{ "progress_summary": "' + gen('progress_summary', stop_regex=',\s*"reasoning"') + \
+                ',\n"reasoning": "' + gen('reasoning', stop_regex=',\s*"name"') + \
+                f''',\n"name": "{select(["click", "fill", "focus", "goto", "achieved", "unreachable"], name="name")}"\n'''
             
             function_name = response['name']
             reasoning = response['reasoning']
             args = {}
             
             if response['name'] == 'click':
-                response = response + f''', "parameters": {{"css_selector": "{select(state.clickable_selectors, name="css_selector")}:contains({gen(name='css_contains', stop=')')})"}}'''
-                args['css_selector'] = response['css_selector'] + f':contains({response["css_contains"]})'
+                response = response + f''', "parameters": {{"css_selector": "{select(state.clickable_selectors, name="css_selector")}"}}'''
+                args['css_selector'] = response['css_selector']
             elif response['name'] == 'fill':
                 response = response + f''', "parameters": {{"css_selector": "{select(state.fillable_selectors, name="css_selector")}", "text": ''' + \
                     gen('text', stop_regex=',\s*"press_enter"') + \
@@ -131,11 +132,11 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
             # Add the result as a function message
             function_message = {
                 "role": "tool",
-                "content": json.dumps({
+                "content": {
                     "name": past_action.action.function,
                     "outcome": past_action.result.outcome,
                     "url": past_action.result.url
-                }),
+                },
                 "tool_call_id": call_id
             }
             chat_messages.append(function_message)
@@ -201,7 +202,7 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
         system_prompt = f'''
 You are a helpful assistant with tool calling capabilities. You have expert knowledge in CSS, HTML, playwright, puppeteer and CSS selectors.
 
-Given a webpage's HTML and full + viewport screenshot, please respond with a JSON for a function call with its proper arguments that takes best action toward completing the goal below. Follow all key considerations in crafting your function call.
+Given a webpage's HTML and full + viewport screenshot, please respond with a JSON for a function call with its proper arguments that takes the next action toward completing the goal below. Follow all key considerations in crafting your function call.
 
 Key considerations:
 * Only consider the goal achieved if and only if the current state and function call history achieves ALL parts of the goal
@@ -222,7 +223,7 @@ Key considerations:
 * Solve captcha pages if they come up.
 * If your goal appear unreachable, try searching.
 
-Respond in the format {{"reasoning": Your concise step by step thoughts on the best next action,"name": function name, "parameters": dictionary of argument name and its value}}. Do not use variables.
+Respond in the format {{"progress_summary": Your concise summary of the current webpage and the prior steps taken, "reasoning": Your concise step by step thoughts on the best next action,"name": function name, "parameters": dictionary of argument name and its value}}. Do not use variables.
 
 {wrapped_tools_str}
 

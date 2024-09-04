@@ -64,7 +64,6 @@ class BrowserSensor(AbstractSensor[BrowserState]):
     def __init__(self, page: Page):
         self.page = page
 
-    # TODO: Create helper functions for finding clickable and fillable elements on the page
     @classmethod
     def find_clickable_elements(cls, soup: BeautifulSoup):
         """Find all clickable elements on the page."""
@@ -87,7 +86,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         
         return fillable_elements
     @classmethod
-    def build_css_selector(cls, element: Tag) -> str:
+    def build_css_selector(cls, element: Tag, soup: BeautifulSoup) -> str:
         """
         Build a CSS selector for a given Tag.
         Prioritizes id over classnames.
@@ -105,10 +104,33 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             return ''.join(selector_parts)  # Return immediately if id is found
 
         # Add classes if they exist
+        # Validate if the class-based selector is unique
         element_classes = element.get('class')
         if element_classes:
             class_selector = '.'.join(element_classes)
             selector_parts.append(f".{class_selector}")
+            matching_elements = soup.select(f"{tag_name}.{class_selector}")
+            
+            # If the selector is not unique, add a :contains() pseudo-class
+            if len(matching_elements) > 1:
+                inner_text = element.get_text(strip=True)
+                if inner_text:
+                    # Escape special characters in the inner text
+                    escaped_text = re.escape(inner_text)
+                    selector_parts.append(f':contains("{escaped_text}")')
+                else:
+                    # If no inner text, try to use a unique attribute
+                    for attr, value in element.attrs.items():
+                        if attr not in ['class', 'style']:
+                            selector_parts.append(f'[{attr}="{value}"]')
+                            break                
+        
+        # If no classes or id, try to use a unique attribute
+        if not element_id and not element_classes:
+            for attr, value in element.attrs.items():
+                if attr not in ['class', 'style']:
+                    selector_parts.append(f'[{attr}="{value}"]')
+                    break
 
         return ''.join(selector_parts)
     
@@ -276,6 +298,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             'placeholder',
             'alt',
             'for',
+            'checked'
         ]
 
         allowed_tags = ['label', 'svg', 'img', 'button', 'input', 'a', 'textarea', 'select', 'optgroup', 'option']
@@ -508,8 +531,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         fillable_elements = BrowserSensor.find_fillable_elements(soup)
         clickable_elements = BrowserSensor.find_clickable_elements(soup)
 
-        fillable_selectors = list(set([BrowserSensor.build_css_selector(x) for x in fillable_elements]))
-        clickable_selectors = list(set([BrowserSensor.build_css_selector(x) for x in clickable_elements]))
+        fillable_selectors = list(set([BrowserSensor.build_css_selector(x, soup) for x in fillable_elements]))
+        clickable_selectors = list(set([BrowserSensor.build_css_selector(x, soup) for x in clickable_elements]))
         
         return BrowserState(
             html=visible_html,
