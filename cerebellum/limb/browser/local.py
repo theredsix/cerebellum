@@ -32,7 +32,7 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
                       echo=False,                      
                       chat_template=ExtendedLlama3ChatTemplate, n_ctx=12072, n_gpu_layers=35, verbose=True)
 
-    def generate_content(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature=0) -> Dict[str, Any]:
+    def generate_content(self, state: BrowserState, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature=0) -> Dict[str, Any]:
         prompt = self.llm
         for message in messages:
             if message["role"] == "system":
@@ -46,36 +46,33 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
             elif message["role"] == "assistant":
                 with assistant():
                     prompt = prompt + f'{{"reasoning": "{message["function"]["reasoning"]}", "name": "{message["function"]["name"]}", "parameters": "{message["function"]["parameters"]}"}}'
-            elif message["role"] == "tool":
+            elif message["role"] == "function":
                 with tool_response():
-                    prompt = role(message["role"], message["content"])
+                    response_part = message["parts"][0]["functionResponse"]
+                    prompt = prompt + f'{{"name": "{response_part["name"]}", "outcome": "{response_part["response"]["content"]["outcome"]}", "url": "{response_part["response"]["content"]["url"]}"}}'
 
         # After processing all messages, generate the response
         with assistant():
             response = prompt + '{ "reasoning": "' + gen('reasoning', stop_regex=',\s*"name"') + \
-                f'''", "name": "{select(["click", "fill", "focus", "goto", "achieved", "unreachable"], name="name")}"'''
+                f''', "name": "{select(["click", "fill", "focus", "goto", "achieved", "unreachable"], name="name")}"'''
             
             function_name = response['name']
             reasoning = response['reasoning']
             args = {}
             
             if response['name'] == 'click':
-                response = response + f''', "parameters": {{
-                    "css_selector": {gen('css_selector', stop="}")}
-                }}'''
-                args['css_selector'] = response['css_selector'].strip('" \n')
+                response = response + f''', "parameters": {{"css_selector": "{select(state.clickable_selectors, name="css_selector")}:contains({gen(name='css_contains', stop=')')})"}}'''
+                args['css_selector'] = response['css_selector'] + f':contains({response["css_contains"]})'
             elif response['name'] == 'fill':
-                response = response + f''', "parameters": {{
-                    "css_selector": {gen('css_selector', stop=',')}, "text": ''' + \
+                response = response + f''', "parameters": {{"css_selector": "{select(state.fillable_selectors, name="css_selector")}", "text": ''' + \
                     gen('text', stop_regex=',\s*"press_enter"') + \
-                    f''', "press_enter": {select(['true', 'false'], name='press_enter')}
-                }}'''
-                args['css_selector'] = response['css_selector'].strip('" \n')
+                    f''', "press_enter": {select(['true', 'false'], name='press_enter')}}}'''
+                args['css_selector'] = response['css_selector']
                 args['text'] = response['text'].strip('" ')
                 args['press_enter'] = response['press_enter'].strip('" \n')
             elif response['name'] == 'focus':
                 response = response + f''', "parameters": {{
-                    "css_selector": {gen('css_selector', stop="}")}
+                    "css_selector": {gen('css_selector', stop="}", regex="[^']")}
                 }}'''
                 args['css_selector'] = response['css_selector'].strip('" \n')
             elif response['name'] == 'goto':
@@ -84,6 +81,7 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
                 }}'''
                 args['href'] = response['href'].strip('" \n')
 
+            print('============================================\n', response, '\n============================================')
 
             return {
                 "name": function_name, 
@@ -149,10 +147,10 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
         fillable_selectors = '\n'.join(state.fillable_selectors)
 
         text_state = []
-        text_state.append(f"Current URL:\n{state.url}\n")
-        text_state.append(f"Current HTML:\n{state.html}\n")
-        text_state.append(f"Clickable Elements\n###\n{clickable_selectors}\n###")
-        text_state.append(f"Fillable Elements\n###\n{fillable_selectors}\n###")
+        text_state.append(f"\nCurrent URL:\n{state.url}\n")
+        text_state.append(f"\nCurrent HTML:\n{state.html}\n")
+        text_state.append(f"\nClickable Elements: ###\n{clickable_selectors}\n###\n")
+        text_state.append(f"\nFillable Elements: ###\n{fillable_selectors}\n###\n")
 
         user_message = {
             "role": "user",
@@ -193,10 +191,9 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
             del tool_deep_copy["parameters"]["properties"]["reasoning"]
             if "required" in tool_deep_copy["parameters"]:
                 tool_deep_copy["parameters"]["required"] = [param for param in tool_deep_copy["parameters"]["required"] if param != "reasoning"]
-            print(tool_deep_copy)
             wrapped_tools.append(json.dumps({
                 "type": "function",
-                "function": tool
+                "function": tool_deep_copy
             }, indent=2))
 
         wrapped_tools_str = '\n'.join(wrapped_tools)
@@ -239,10 +236,10 @@ Goal:
             "content": system_prompt
         }
 
-    def get_next_action(self, goal: str, current_page: BrowserState, 
+    def get_next_action(self, goal: str, state: BrowserState, 
                         session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]) -> BrowserAction:
         system_prompt = self.get_system_prompt(goal)
-        current_state_msg = self.format_state_into_chat(current_page, goal)
+        current_state_msg = self.format_state_into_chat(state, goal)
         history = self.format_actions_into_chats(session_history)
 
         # Append current_state_msg to history
@@ -257,7 +254,7 @@ Goal:
             else:
                 self.temperature = min(1.0, self.temperature + 0.3)
 
-        response = self.generate_content(history, tools, self.temperature)
+        response = self.generate_content(state, history, tools, self.temperature)
 
         print(response)
 
