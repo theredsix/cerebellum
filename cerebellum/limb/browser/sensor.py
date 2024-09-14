@@ -67,7 +67,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
     @classmethod
     def find_clickable_elements(cls, soup: BeautifulSoup):
         """Find all clickable elements on the page."""
-        return soup.select('a, button, [onclick], [role="button"], input[type="submit"], input[type="button"]')
+        return soup.select('a, button, [onclick], [role="button"], input[type="submit"], input[type="button"], input[type="radio"], input[type="checkbox"]')
 
     @classmethod
     def find_fillable_elements(cls, soup: BeautifulSoup):
@@ -76,7 +76,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         for element in soup.find_all(['input', 'textarea']):
             if element.name == 'input':
                 input_type = element.get('type', '').lower()
-                if input_type not in ['submit', 'button', 'hidden']:
+                if input_type not in ['submit', 'button', 'hidden', 'radio', 'checkbox']:
                     fillable_elements.append(element)
             else:  # textarea
                 fillable_elements.append(element)
@@ -85,6 +85,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         fillable_elements.extend(soup.find_all(attrs={'contenteditable': 'true'}))
         
         return fillable_elements
+    
     @classmethod
     def build_css_selector(cls, element: Tag, soup: BeautifulSoup) -> str:
         """
@@ -298,7 +299,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             'placeholder',
             'alt',
             'for',
-            'checked'
+            'checked',
+            'is_checked'
         ]
 
         allowed_tags = ['label', 'svg', 'img', 'button', 'input', 'a', 'textarea', 'select', 'optgroup', 'option']
@@ -308,6 +310,13 @@ class BrowserSensor(AbstractSensor[BrowserState]):
                 tag.attrs = {attr: value for attr, value in tag.attrs.items() if attr in allowed_attributes and value not in ('', None)}
             else:
                 tag.attrs = {}
+
+            # Check if is_checked is true and set checked attribute accordingly
+            if tag.attrs.get('is_checked') == 'true':
+                tag['checked'] = 'checked'
+            # Remove the is_checked attribute as it's not a standard HTML attribute
+            if 'is_checked' in tag.attrs:
+                del tag['is_checked']
 
             if 'href' in tag.attrs:
                 href = tag['href'].strip().lower()
@@ -445,6 +454,14 @@ class BrowserSensor(AbstractSensor[BrowserState]):
                     return null;
                 }
                 const clone = node.cloneNode(false);
+                                     
+                // Check if the node is a radio button and add custom attribute if checked
+                if (node.tagName === 'INPUT' && (node.type === 'radio' || node.type === 'checkbox')) {
+                    if (node.checked) {
+                        clone.setAttribute('is_checked', 'true');
+                    }
+                }
+                                     
                 for (const child of node.childNodes) {
                     const strippedChild = stripInvisible(child);
                     if (strippedChild) {
@@ -498,6 +515,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         
         # Parse the content with BeautifulSoup
         soup = BeautifulSoup(page_html, 'html.parser')
+
+        print(soup.prettify())
 
         # BrowserSensor.remove_nonvisible_elements(soup)
 

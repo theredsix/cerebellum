@@ -53,12 +53,21 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
 
         # After processing all messages, generate the response
         with assistant():
-            response = prompt + '{ "progress_summary": "' + gen('progress_summary', stop_regex=',\s*"reasoning"') + \
-                ',\n"reasoning": "' + gen('reasoning', stop_regex=',\s*"name"') + \
-                f''',\n"name": "{select(["click", "fill", "focus", "goto", "achieved", "unreachable"], name="name")}"\n'''
+            response = prompt + '{ "prior_steps": "' + gen('prior_steps', stop_regex=',\s*"current_state"') + \
+                ',\n"current_state": "' + gen('current_state', stop_regex=',\s*"potential_actions"') + \
+                f''',\n"potential_actions": "Top 5 potential actions to advance towards goal are:
+    1. {gen(stop_regex='2.')}
+    2. {gen(stop_regex='3.')}
+    3. {gen(stop_regex='4.')}
+    4. {gen(stop_regex='5.')}
+    5. {gen(stop_regex='"action_analysis":')}''' + \
+                '"action_analysis": "' + gen('action_analysis', stop_regex=',\s*"name"') + \
+                f''',\n"name": "{select(["click", "fill", "focus", "goto", "achieved", "unreachable"], name="name")}"'''
             
+            print(response)
+
             function_name = response['name']
-            reasoning = response['reasoning']
+            reasoning = response['action_analysis']
             args = {}
             
             if response['name'] == 'click':
@@ -214,6 +223,9 @@ Key considerations:
   2. Unique class-based selectors
   3. Attribute selectors
   4. Combination of tag and class/attribute
+* A radio button input is selected when it has the 'checked' attribute, (i.e. checked="checked")
+* A checkbox input is selected when it has the 'checked' attribute, (i.e. checked="checked")
+* Click to select or check radio buttons and checkboxes
 * Target element argument of click() functionCall must match a css selector from 'Clickable Elements'
 * Target element argument of fill() functionCall must match a css selector from 'Fillable Elements'
 * If you believe the goal cannot be achieved, call the "unreachable" function. 
@@ -223,7 +235,7 @@ Key considerations:
 * Solve captcha pages if they come up.
 * If your goal appear unreachable, try searching.
 
-Respond in the format {{"progress_summary": Your concise summary of the current webpage and the prior steps taken, "reasoning": Your concise step by step thoughts on the best next action,"name": function name, "parameters": dictionary of argument name and its value}}. Do not use variables.
+Respond in the format {{"prior_steps": Your concise summary of prior steps and their outcomes, "current_state": Your concise summary of the current webpage. Always restate the current state of forms, "potential_actions": Plan out the 5 best actions to move closer to your goal, "action_analysis": Analyze the potential actions and assess the best one, "name": function name, "parameters": dictionary of argument name and its value}}. Do not use variables.
 
 {wrapped_tools_str}
 

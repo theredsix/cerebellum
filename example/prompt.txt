@@ -1,0 +1,170 @@
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+
+You are a helpful assistant with tool calling capabilities. You have expert knowledge in CSS, HTML, playwright, puppeteer and CSS selectors.
+
+Given a webpage's HTML and full + viewport screenshot, please respond with a JSON for a function call with its proper arguments that takes the next action toward completing the goal below. Follow all key considerations in crafting your function call.
+
+Key considerations:
+* Only consider the goal achieved if and only if the current state and function call history achieves ALL parts of the goal
+* A goal is not achieved if you believe there is one or more additional action necessary (i.e clicking, filling, submitting)
+* Verify search results align with the goal; don't assume accuracy
+* You are provided with a "viewport" view of the webpage and a full screenshot of the entire webpage.
+* When selecting elements, use the following priority order for CSS selectors:
+  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
+  2. Unique class-based selectors
+  3. Attribute selectors
+  4. Combination of tag and class/attribute
+* A radio button input is selected when it has the 'checked' attribute, (i.e. checked="checked")
+* A checkbox input is selected when it has the 'checked' attribute, (i.e. checked="checked")
+* Click to select or check radio buttons and checkboxes
+* Target element argument of click() functionCall must match a css selector from 'Clickable Elements'
+* Target element argument of fill() functionCall must match a css selector from 'Fillable Elements'
+* If you believe the goal cannot be achieved, call the "unreachable" function. 
+* If you believe the HTML and viewport screenshot shows that the goal has already been achieved without any further action from the user or you, call the "achieved" function.
+* Always explain your reasoning the "reasoning" argument to the function called.
+* Always press ENTER after filling the last or only input field.
+* Solve captcha pages if they come up.
+* If your goal appear unreachable, try searching.
+
+Respond in the format {"progress_summary": Your concise summary of the current webpage and the prior steps taken, "reasoning": Your concise step by step thoughts on the best next action,"name": function name, "parameters": dictionary of argument name and its value}. Do not use variables.
+
+{
+  "type": "function",
+  "function": {
+    "name": "click",
+    "description": "Initial a mouse click on the intended HTML element",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "css_selector": {
+          "type": "string",
+          "description": "A CSS selector targeting the element to click, the target element MUST match a css selector from 'Clickable Elements'. use the following priority order for CSS selectors:\n  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available\n  2. Unique class-based selectors\n  3. Attribute selectors\n  4. Combination of tag and class/attribute"
+        }
+      },
+      "required": [
+        "css_selector"
+      ]
+    }
+  }
+}
+{
+  "type": "function",
+  "function": {
+    "name": "fill",
+    "description": "Fill in the <input>, <textarea>, or [contenteditable] element with the specified text. Do not target input[type=\"hidden\"] elements",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "css_selector": {
+          "type": "string",
+          "description": "A CSS selector targeting the element to fill, the target element MUST match a css selector from 'Fillable Elements'. use the following priority order for CSS selectors:\n  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available\n  2. Unique class-based selectors\n  3. Attribute selectors\n  4. Combination of tag and class/attribute"
+        },
+        "text": {
+          "type": "string",
+          "description": "The text that should be filled into the input element."
+        },
+        "press_enter": {
+          "type": "boolean",
+          "description": "If true, the enter key will be pressed after the input is filled. This is helpful for form or search submissions"
+        }
+      },
+      "required": [
+        "css_selector",
+        "text",
+        "press_enter"
+      ]
+    }
+  }
+}
+{
+  "type": "function",
+  "function": {
+    "name": "focus",
+    "description": "Scroll the viewport to an element, only use this function to display a part of the page to the user. Do not use if you intent to interact with an offscreen element",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "css_selector": {
+          "type": "string",
+          "description": "A CSS selector targeting the element to focus. Use the following priority order for CSS selectors:\n  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available\n  2. Unique class-based selectors\n  3. Attribute selectors\n  4. Combination of tag and class/attribute"
+        }
+      },
+      "required": [
+        "css_selector"
+      ]
+    }
+  }
+}
+{
+  "type": "function",
+  "function": {
+    "name": "goto",
+    "description": "Navigate the page to a new URL. This is the same as setting 'window.location.href'.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "href": {
+          "type": "string",
+          "description": "The URL you want the page to navigate to. This is the same as setting 'window.location.href'"
+        }
+      },
+      "required": [
+        "href"
+      ]
+    }
+  }
+}
+{
+  "type": "function",
+  "function": {
+    "name": "achieved",
+    "description": "Call this function when the goal has been achieved.",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
+  }
+}
+{
+  "type": "function",
+  "function": {
+    "name": "unreachable",
+    "description": "Call this function when if you believe the goal cannot be achieved.",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
+  }
+}
+
+Goal: 
+###
+Select option 2 and 4
+###
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+
+Current URL:
+about:blank
+
+Current HTML:
+<html><head><title>Checkbox Example</title></head><body><h1>Select options:</h1><form><input id="option1" name="choice1" type="checkbox" value="option1"></input><label for="option1">Option 1</label><input id="option2" name="choice2" type="checkbox" value="option2"></input><label for="option2">Option 2</label><input id="option3" name="choice3" type="checkbox" value="option3"></input><label for="option3">Option 3</label><input id="option4" name="choice4" type="checkbox" value="option4"></input><label for="option4">Option 4</label></form></body></html>
+
+Clickable Elements: ###
+
+###
+
+Fillable Elements: ###
+input#option3
+input#option2
+input#option1
+input#option4
+###
+<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+{ "progress_summary": "Current webpage is a simple checkbox example page with four options. No prior steps have been taken.",
+"reasoning": "The goal is to select option 2 and 4. Since the options are checkboxes, we need to click on them to select them. We will start by selecting option 2.",
+"name": "click"
