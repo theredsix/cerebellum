@@ -56,11 +56,11 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
             response = prompt + '{ "prior_steps": "' + gen('prior_steps', stop_regex=',\s*"current_state"') + \
                 ',\n"current_state": "' + gen('current_state', stop_regex=',\s*"potential_actions"') + \
                 f''',\n"potential_actions": "Top 5 potential actions to advance towards goal are:
-    1. {gen(stop_regex='2.')}
-    2. {gen(stop_regex='3.')}
-    3. {gen(stop_regex='4.')}
-    4. {gen(stop_regex='5.')}
-    5. {gen(stop_regex='"action_analysis":')}''' + \
+    1. {gen(stop='2.')}
+    2. {gen(stop='3.')}
+    3. {gen(stop='4.')}
+    4. {gen(stop='5.')}
+    5. {gen(stop='"action_analysis":')}''' + \
                 '"action_analysis": "' + gen('action_analysis', stop_regex=',\s*"name"') + \
                 f''',\n"name": "{select(["click", "fill", "focus", "goto", "achieved", "unreachable"], name="name")}"'''
             
