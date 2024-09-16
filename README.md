@@ -1,5 +1,32 @@
 # Cerebellum Browser Automation
 
+## Quickstart
+
+```python
+from cerebellum.browser.planner import GeminiBrowserPlanner, HumanBrowserPlanner
+from cerebellum.browser.session import BrowserSession
+from cerebellum.memory.file import FileSessionMemory
+from playwright.sync_api import sync_playwright
+import os
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    context = browser.new_context()
+    context.tracing.start(screenshots=True)
+    page = context.new_page()
+    page.goto("https://www.amazon.com/")
+
+    planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
+
+    goal = "Add a USB C to USB C cable to cart"
+
+    session = BrowserSession(goal, page, planner=planner)
+
+    session.start()
+
+```
+
+
 ## Overview
 Cerebellum is a browser automation system that uses AI-driven planning to navigate web pages and perform goals. This project combines the power of large language models with browser automation tools to create a flexible and intelligent system for completing goals on websites.
 
@@ -31,10 +58,16 @@ Key reasons for using Cerebellum:
 - Extensible architecture for adding new capabilities
 
 ## Installation
-(Add installation instructions here)
 
-## Usage
-(Add basic usage instructions here)
+To install Cerebellum from local source, cd to git root directory.
+
+`conda develop ./cerebellum` or `pip install -e ./cerebellum`
+
+Online pip and conda instructions will be added once package is published.
+
+#### Local LLM Planner configuration
+
+If you want to use Cerebellum with a local model, please also install [guidance](https://github.com/guidance-ai/guidance) and [llama-cpp-python](https://github.com/abetlen/llama-cpp-python).
 
 ## Theory
 

@@ -1,4 +1,4 @@
-from limb.browser.local import LocalLLMBrowserPlanner
+from cerebellum.browser.local import LocalLLMBrowserPlanner
 from cerebellum.browser.planner import HumanBrowserPlanner, OpenAIBrowserPlanner
 from cerebellum.browser.session import BrowserSession
 from cerebellum.memory.file import FileSessionMemory

@@ -5,14 +5,9 @@ setup(
     version='0.1',
     packages=find_packages(),
     install_requires=[
-        # List your dependencies here
+        'playwright',
+        'cssutils',
+        'beautifulsoup4'
     ],
-    extras_require={
-        'browser': [
-            'playwright',
-            'cssutils',
-            'beautifulsoup4'
-        ]
-    },
     python_requires='>=3.8',
 )
