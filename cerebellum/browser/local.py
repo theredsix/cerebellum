@@ -1,16 +1,16 @@
 from guidance import models, gen, system, user, assistant, role, select
 from guidance.chat import Llama3ChatTemplate
 import json
-from core_abstractions import AbstractPlanner, RecordedAction
+from core import AbstractPlanner, RecordedAction
 import json
 import random
 import string
 import json
 from playwright.sync_api import Page
 from typing import List, Dict, Any
-from cerebellum.limb.browser.planner import tools
-from cerebellum.core_abstractions import AbstractPlanner, RecordedAction
-from cerebellum.limb.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult, BrowserState
+from cerebellum.browser.planner import tools
+from core import AbstractPlanner, RecordedAction
+from cerebellum.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult, BrowserState
 
 def tool_response(text=None, **kwargs):
     return role("tool_response", text, **kwargs)

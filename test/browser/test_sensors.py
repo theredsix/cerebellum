@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from cerebellum.limb.browser.sensor import BrowserSensor
+from cerebellum.browser.sensor import BrowserSensor
 
 def test_collapse_single_child_to_parent():
     

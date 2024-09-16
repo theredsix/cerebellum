@@ -7,8 +7,8 @@ import requests
 import json
 from playwright.sync_api import Page
 from typing import List, Dict, Any
-from cerebellum.core_abstractions import AbstractPlanner, SupervisorPlanner, RecordedAction
-from cerebellum.limb.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult, BrowserState
+from core import AbstractPlanner, SupervisorPlanner, RecordedAction
+from cerebellum.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult, BrowserState
 
 tools = [
              {

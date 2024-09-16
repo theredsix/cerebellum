@@ -1,4 +1,4 @@
-from cerebellum.core_abstractions import AbstractLimb
+from core import AbstractLimb
 from .types import BrowserAction, BrowserActionOutcome, BrowserActionResult
 from playwright.sync_api import Page, TimeoutError, Error
 

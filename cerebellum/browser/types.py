@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import List
-from cerebellum.core_abstractions import BaseAction, BaseResult, BaseState
+from core import BaseAction, BaseResult, BaseState
 
 BrowserActionOutcome = {
     'SUCCESS' : "Action performed.",

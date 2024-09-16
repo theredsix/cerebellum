@@ -2,7 +2,7 @@ from typing import List, Tuple
 import json
 import zipfile
 from pathlib import Path
-from cerebellum.core_abstractions import (
+from core import (
     StateT, ActionT, ResultT, AbstractSessionMemory, RecordedAction
 )
 

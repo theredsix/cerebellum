@@ -3,8 +3,8 @@ import re
 import cssutils
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup, Comment, NavigableString, PageElement, Tag
-from cerebellum.core_abstractions import AbstractSensor
-from cerebellum.limb.browser.types import BrowserState
+from core import AbstractSensor
+from cerebellum.browser.types import BrowserState
 from playwright.sync_api import Page, TimeoutError
 import logging
 
