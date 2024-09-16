@@ -1,12 +1,16 @@
 
+from ast import List
+import html
 from bs4 import BeautifulSoup
+from core import AbstractSessionRecorder, ActionT, RecordedAction, ResultT, StateT
+from playwright import Page
 
 
 class PageActionRecorder(AbstractSessionRecorder):
     page: Page
 
-    def __init__(self, page: Page):
-        self.page = page
+    def __init__(self, display_page: Page):
+        self.page = display_page
 
     def display_state(self, action: RecordedAction) -> None:
         # Parse and pretty print the HTML content        
@@ -58,14 +62,7 @@ class PageActionRecorder(AbstractSessionRecorder):
         # Set the content of the page to our created HTML
         self.page.set_content(html_content)
 
-    def record(self, session: AbstractBrowserSession) -> None:
-        self.display_state(session.actions[-1])
-
-    def record_step(self, session: AbstractBrowserSession, step: int) -> None:
-        # Display the state for the given step
-        action = session.actions[step - 1]
-        self.display_state(action)
-
-    def recover(self) -> (str, List[RecordedAction]):
-        # This method is not implemented for this recorder
-        raise NotImplementedError("The recover method is not supported for this recorder.")
+    def record(self, goal: str,
+              past_actions: List[RecordedAction[StateT, ActionT, ResultT]],
+               step: int | None = None) -> bool:
+        self.display_state(past_actions[-1])
