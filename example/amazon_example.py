@@ -12,7 +12,7 @@ def wait_for_input():
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
-    context = browser.new_context()
+    context = browser.new_context(user_agent="")
     context.tracing.start(screenshots=True)
     page = context.new_page()
     control_page = context.new_page()
