@@ -520,12 +520,12 @@ class BrowserSensor(AbstractSensor[BrowserState]):
 
         # BrowserSensor.remove_nonvisible_elements(soup)
 
+        BrowserSensor.empty_svg(soup)
+
         BrowserSensor.collapse_single_child_to_parent(soup)
 
         BrowserSensor.remove_empty_elements(soup)
 
-        BrowserSensor.empty_svg(soup)
-        
         BrowserSensor.remove_unnecessary_attributes(soup)
 
         BrowserSensor.escape_id_and_classnames(soup)
