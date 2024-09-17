@@ -67,7 +67,27 @@ class BrowserSensor(AbstractSensor[BrowserState]):
     @classmethod
     def find_clickable_elements(cls, soup: BeautifulSoup):
         """Find all clickable elements on the page."""
-        return soup.select('a, button, [onclick], [role="button"], input[type="submit"], input[type="button"], input[type="radio"], input[type="checkbox"]')
+        return soup.select('a, button, [onclick], [role="button"], input[type="submit"], input[type="button"]')
+
+    @classmethod
+    def find_checkable_elements(cls, soup: BeautifulSoup):
+        """Find all checkable elements on the page."""
+        return soup.select('input[type="checkbox"], input[type="radio"]')
+    
+    @classmethod
+    def find_selectable_elements(cls, soup: BeautifulSoup):
+        """Find all selectable elements on the page and their options."""
+        selectable_elements = {}
+        for select_element in soup.find_all('select'):
+            options = []
+            for option in select_element.find_all('option'):
+                value = option.get('value')
+                text = option.text.strip()
+                if value is None:
+                    value = ""
+                options.append({'value': value, 'text': text})
+            selectable_elements[select_element] = options
+        return selectable_elements
 
     @classmethod
     def find_fillable_elements(cls, soup: BeautifulSoup):
@@ -552,6 +572,16 @@ class BrowserSensor(AbstractSensor[BrowserState]):
 
         fillable_selectors = list(set([BrowserSensor.build_css_selector(x, soup) for x in fillable_elements]))
         clickable_selectors = list(set([BrowserSensor.build_css_selector(x, soup) for x in clickable_elements]))
+
+        selectable_elements = BrowserSensor.find_selectable_elements(soup)
+        checkable_elements = BrowserSensor.find_checkable_elements(soup)
+
+        selectable_selectors = {}
+        for select_element, options in selectable_elements.items():
+            selector = BrowserSensor.build_css_selector(select_element, soup)
+            selectable_selectors[selector] = [ x["value"] for x in options]
+
+        checkable_selectors = list(set([BrowserSensor.build_css_selector(x, soup) for x in checkable_elements]))
         
         return BrowserState(
             html=visible_html,
@@ -561,5 +591,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             url=self.page.url,
             fillable_selectors=fillable_selectors,
             clickable_selectors=clickable_selectors,
+            selectable_selectors=selectable_selectors,
+            checkable_selectors=checkable_selectors
         )
 

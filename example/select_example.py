@@ -1,45 +1,37 @@
-from cerebellum.browser.local import LocalLLMBrowserPlanner
-from cerebellum.browser.planner import OpenAIBrowserPlanner
+from cerebellum.browser.planner import HumanBrowserPlanner, OpenAIBrowserPlanner
 from cerebellum.browser.session import BrowserSession
 from cerebellum.memory.file import FileSessionMemory
 from playwright.sync_api import sync_playwright
 import os
 
-def create_radio_buttons_page(page):
+def create_dropdown_page(page):
     html_content = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Checkbox Example</title>
+        <title>Dropdown Select Example</title>
     </head>
     <body>
-        <h1>Select options:</h1>
+        <h1>Select an option:</h1>
         <form>
-            <input type="checkbox" id="option1" name="choice1" value="option1">
-            <label for="option1">Option 1</label><br>
-            
-            <input type="checkbox" id="option2" name="choice2" value="option2">
-            <label for="option2">Option 2</label><br>
-            
-            <input type="checkbox" id="option3" name="choice3" value="option3">
-            <label for="option3">Option 3</label><br>
-            
-            <input type="checkbox" id="option4" name="choice4" value="option4">
-            <label for="option4">Option 4</label><br>
+            <label for="cars">Choose a car:</label>
+            <select id="cars" name="cars" multiple>
+                <option value="">--Please choose an option--</option>
+                <option value="volvo">Volvo</option>
+                <option value="saab">Saab</option>
+                <option value="mercedes">Mercedes</option>
+                <option value="audi">Audi</option>
+            </select>
         </form>
     </body>
     </html>
     """
     page.set_content(html_content)
 
-
-
 def wait_for_input():
-    # Check for keyboard input
     input("Press enter to continue...")
-
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
@@ -47,18 +39,13 @@ with sync_playwright() as p:
     context.tracing.start(screenshots=True)
     page = context.new_page()
     control_page = context.new_page()
-    # debug_page = context.new_page()
-    create_radio_buttons_page(page);
-    # page.goto("https://www.dmv.ca.gov/")
+    create_dropdown_page(page)
 
     recorders = [FileSessionMemory('session.cere')]
-    # base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
     base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
-    # base_planner = LocalLLMBrowserPlanner()
-
     planner = HumanBrowserPlanner(base_planner, control_page)
 
-    goal = "Select only option 2 and 4"
+    goal = "Select 'Mercedes' and 'Saab' from the dropdown menu"
 
     session = BrowserSession(goal, page, planner=planner, recorders=recorders)
 

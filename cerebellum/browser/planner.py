@@ -7,13 +7,13 @@ import requests
 import json
 from playwright.sync_api import Page
 from typing import List, Dict, Any
-from core import AbstractPlanner, SupervisorPlanner, RecordedAction
+from cerebellum.core import AbstractPlanner, SupervisorPlanner, RecordedAction
 from cerebellum.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult, BrowserState
 
 tools = [
-             {
+            {
                 "name": "click",
-                "description": "Initial a mouse click on the intended HTML element",
+                "description": "Initiate a mouse click on the intended HTML element",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -24,6 +24,28 @@ tools = [
                         "css_selector": {
                             "type": "string",
                             "description": '''A CSS selector targeting the element to click, the target element MUST match a css selector from 'Clickable Elements'. use the following priority order for CSS selectors:
+  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
+  2. Unique class-based selectors
+  3. Attribute selectors
+  4. Combination of tag and class/attribute''',
+                        }
+                    },
+                    "required": ["reasoning", "css_selector"],
+                },
+            },
+            {
+                "name": "check",
+                "description": "Check a checkbox or radio button",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "reasoning": {
+                            "type": "string",
+                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
+                        },
+                        "css_selector": {
+                            "type": "string",
+                            "description": '''A CSS selector targeting the element to click, the target element MUST match a css selector from 'Checkable Elements'. use the following priority order for CSS selectors:
   1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
   2. Unique class-based selectors
   3. Attribute selectors
@@ -61,6 +83,35 @@ tools = [
                         },
                     },
                     "required": ["reasoning", "css_selector", "text", "press_enter"],
+                },
+            },
+            {
+                "name": "select",
+                "description": 'Select the values for a <select> tag',
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "reasoning": {
+                            "type": "string",
+                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
+                        },
+                        "css_selector": {
+                            "type": "string",
+                            "description": '''A CSS selector targeting the select element, the target element MUST match a css selector from 'Selectable Elements'. use the following priority order for CSS selectors:
+  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
+  2. Unique class-based selectors
+  3. Attribute selectors
+  4. Combination of tag and class/attribute''',
+                        },
+                        "values": {
+                            "type": "array",
+                            "description": "The value(s) that should be selected. For non multiple select, there should only be one value",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                    },
+                    "required": ["reasoning", "css_selector", "values"],
                 },
             },
             {
@@ -522,6 +573,8 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
         url = f"{self.origin}/v1/chat/completions"
         
         print('Calling OpenAI')
+
+        print(payload["messages"])
         
         response = requests.post(url, headers=headers, data=json.dumps(payload))
 
@@ -592,12 +645,19 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
     def format_state_into_chat(self, state: BrowserState, goal: str):
         clickable_selectors = '\n'.join(state.clickable_selectors)
         fillable_selectors = '\n'.join(state.fillable_selectors)
+        checkable_selectors = '\n'.join(state.checkable_selectors)
+
+        print(state.selectable_selectors)
+
+        selectable_selectors = '\n'.join([f"{selector}: {', '.join(options)}" for selector, options in state.selectable_selectors.items()])
 
         text_state = []
         text_state.append(f"Current URL:\n{state.url}\n")
         text_state.append(f"Current HTML:\n{state.html}\n")
         text_state.append(f"Clickable Elements\n###\n{clickable_selectors}\n###")
         text_state.append(f"Fillable Elements\n###\n{fillable_selectors}\n###")
+        text_state.append(f"Checkable Elements\n###\n{checkable_selectors}\n###")
+        text_state.append(f"Selectable Elements\n###\n{selectable_selectors}\n###")
 
         user_message = {
             "role": "user",

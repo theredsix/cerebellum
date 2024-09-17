@@ -85,7 +85,7 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                             # Verify that the target_element has been set to the required text
                             self.page.wait_for_timeout(100)
                             actual_text = target_element.input_value()
-                            if actual_text != text:
+                            if actual_text != ', '.join(text):
                                 print(f"Warning: Element text mismatch. Expected '{text}', but got '{actual_text}'")
                                 outcome = BrowserActionOutcome['NONFILLABLE_TARGET_ELEMENT']
 
@@ -99,9 +99,30 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                                 outcome = BrowserActionOutcome['NONFILLABLE_TARGET_ELEMENT']
                             else:
                                 raise  # Re-raise the exception
-                    
+                    case "select":
+                        # Ensure the element is fillable
+                        values = params["values"]
+                        try:
+                            target_element.select_option(values)
+
+                            # Verify that the target_element has been set to the required text
+                            self.page.wait_for_timeout(100)
+                            actual_value = target_element.evaluate("el => el.value")
+                            if actual_value != values:
+                                print(f"Warning: Element value mismatch. Expected '{values}', but got '{actual_value}'")
+                                outcome = BrowserActionOutcome['INVALID_SELECT_VALUE']
+                            else:
+                                outcome = BrowserActionOutcome['SUCCESS']
+                        except Exception as e:
+                            print(f"Error: Failed to select option '{values}' for element with selector '{css_selector}': {str(e)}")
+                            outcome = BrowserActionOutcome['INVALID_SELECT_VALUE']
                     case "click":
                         print(f"Clicking element: selector='{css_selector}'")
+                        target_element.click()
+                        outcome = BrowserActionOutcome['SUCCESS']
+                        after_action_delay = 500
+                    case "check":
+                        print(f"Checking element: selector='{css_selector}'")
                         target_element.click()
                         outcome = BrowserActionOutcome['SUCCESS']
                         after_action_delay = 500
