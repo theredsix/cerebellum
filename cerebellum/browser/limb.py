@@ -104,7 +104,7 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                         # Ensure the element is fillable
                         values = params["values"]
                         try:
-                            target_element.select_option(values)
+                            target_element.select_option(values, force=True)
 
                             # Verify that the target_element has been set to the required text
                             self.page.wait_for_timeout(100)
@@ -127,12 +127,12 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                             outcome = BrowserActionOutcome['INVALID_SELECT_VALUE']
                     case "click":
                         print(f"Clicking element: selector='{css_selector}'")
-                        target_element.click()
+                        target_element.click(force=True)
                         outcome = BrowserActionOutcome['SUCCESS']
                         after_action_delay = 500
                     case "check":
                         print(f"Checking element: selector='{css_selector}'")
-                        target_element.click()
+                        target_element.check(force=True)
                         outcome = BrowserActionOutcome['SUCCESS']
                         after_action_delay = 500
                     case "focus":

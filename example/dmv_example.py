@@ -25,7 +25,7 @@ with sync_playwright() as p:
 
     planner = HumanBrowserPlanner(base_planner, control_page)
 
-    goal = "Complete the vehicle registration renewal for License Plate 7WDR747 with VIN 08969"
+    goal = "Complete a planned non operation vehicle registration renewal for License Plate 7WDR747 with VIN 08969"
 
     session = BrowserSession(goal, page, planner=planner, recorders=recorders)
 

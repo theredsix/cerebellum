@@ -383,13 +383,14 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                     "description": "Your concise summary of the current webpage. Always describe the current state of any visible forms"
                 },
                 "3_top_5_potential_actions": {
-                    "type": "ARRAY",
+                    "type": "OBJECT",
                     "description": "Plan out the 5 best actions to move closer to your goal",
-                    "items": {
-                        "type": "OBJECT",
-                        "properties": {
-                            "action": {"type": "STRING"},
-                        }
+                    "properties": {
+                        "potential_action_1": { "type": "STRING" },
+                        "potential_action_2": { "type": "STRING" },
+                        "potential_action_3": { "type": "STRING" },
+                        "potential_action_4": { "type": "STRING" },
+                        "potential_action_5": { "type": "STRING" },
                     }
                 },
                 "4_action_analysis": {
@@ -449,7 +450,14 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                 "temperature": temperature,
                 "response_mime_type": "application/json",
                 "response_schema": GeminiBrowserPlanner.format_tools_to_openapi(tools)
-            }
+            },
+            "safetySettings": [
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_CIVIC_INTEGRITY", "threshold": "BLOCK_NONE"},
+            ],
         }
         
         print('Calling Gemini')
@@ -491,10 +499,12 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                 "role": "model",
                 "parts": [
                     {
-                        "functionCall": {
-                            "name": past_action.action.function,
-                            "args": arg_dict
-                        }
+                        "text": json.dumps({
+                            "functionCall": {
+                                "name": past_action.action.function,
+                                "args": arg_dict
+                            }
+                        })
                     }
                 ]
             }
@@ -502,18 +512,20 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
             
             # Add the result as a function message
             function_response_msg = {
-                "role": "function",
+                "role": "user",
                 "parts": [{
-                    "functionResponse": {
-                        "name": past_action.action.function,
-                        "response": {
+                    "text": json.dumps({
+                            "functionResponse": {
                             "name": past_action.action.function,
-                            "content": {
-                                "outcome": past_action.result.outcome,
-                                "url": past_action.result.url
+                            "response": {
+                                "name": past_action.action.function,
+                                "content": {
+                                    "outcome": past_action.result.outcome,
+                                    "url": past_action.result.url
+                                }
                             }
                         }
-                    }
+                    })
                 }]
             }
             chat_messages.append(function_response_msg)
@@ -652,7 +664,7 @@ Goal:
             args=args,
             prior_steps=function_call['1_prior_steps'],
             current_state=function_call['2_current_state'],
-            top_5_actions=[action['action'] for action in function_call['3_top_5_potential_actions']],
+            top_5_actions=[action for action in function_call['3_top_5_potential_actions'].values()],
             action_analysis=function_call['4_action_analysis']
         )
 
