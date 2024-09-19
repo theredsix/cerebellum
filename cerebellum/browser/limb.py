@@ -1,6 +1,7 @@
-from core import AbstractLimb
-from .types import BrowserAction, BrowserActionOutcome, BrowserActionResult
+from cerebellum.core import AbstractLimb
+from cerebellum.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult
 from playwright.sync_api import Page, TimeoutError, Error
+from collections import Counter
 
 class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
 
@@ -107,9 +108,17 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
 
                             # Verify that the target_element has been set to the required text
                             self.page.wait_for_timeout(100)
-                            actual_value = target_element.evaluate("el => el.value")
-                            if actual_value != values:
-                                print(f"Warning: Element value mismatch. Expected '{values}', but got '{actual_value}'")
+                            actual_value = target_element.evaluate("""
+                                el => Array.from(el.selectedOptions)
+                                    .map(option => option.value)
+                                    .join(',')
+                            """)
+                            # Convert actual_value to a list by splitting on commas
+                            actual_value_list = actual_value.split(',')
+                            # Convert values to a list if it's not already (in case it's a single string)
+                            values_list = values if isinstance(values, list) else [values]
+                            if Counter(values_list) != Counter(values_list):
+                                print(f"Warning: Element value mismatch. Expected '{values_list}', but got '{actual_value_list}'")
                                 outcome = BrowserActionOutcome['INVALID_SELECT_VALUE']
                             else:
                                 outcome = BrowserActionOutcome['SUCCESS']

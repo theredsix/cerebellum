@@ -1,6 +1,5 @@
-from cerebellum.browser.planner import HumanBrowserPlanner, OpenAIBrowserPlanner
-from cerebellum.browser.session import BrowserSession
-from cerebellum.memory.file import FileSessionMemory
+from cerebellum.browser.local import LocalLLMBrowserPlanner
+from cerebellum import HumanBrowserPlanner, OpenAIBrowserPlanner, BrowserSession, FileSessionMemory
 from playwright.sync_api import sync_playwright
 import os
 
@@ -42,7 +41,8 @@ with sync_playwright() as p:
     create_dropdown_page(page)
 
     recorders = [FileSessionMemory('session.cere')]
-    base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
+    # base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
+    base_planner = LocalLLMBrowserPlanner()
     planner = HumanBrowserPlanner(base_planner, control_page)
 
     goal = "Select 'Mercedes' and 'Saab' from the dropdown menu"

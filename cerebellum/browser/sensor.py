@@ -582,6 +582,33 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             selectable_selectors[selector] = [ x["value"] for x in options]
 
         checkable_selectors = list(set([BrowserSensor.build_css_selector(x, soup) for x in checkable_elements]))
+
+        input_state = {}
+
+        # Handle fillable elements
+        for selector in fillable_selectors:
+            element = self.page.locator(selector)
+            if element.count() > 0:
+                value = element.input_value()
+                input_state[selector] = value
+
+        # Handle checkable elements
+        for selector in checkable_selectors:
+            element = self.page.locator(selector)
+            if element.count() > 0:
+                is_checked = element.is_checked()
+                input_state[selector] = 'checked' if is_checked else 'unchecked'
+
+        # Handle selectable elements
+        for selector in selectable_selectors:
+            element = self.page.locator(selector)
+            if element.count() > 0:
+                selected_values = element.evaluate("""
+                    el => Array.from(el.selectedOptions)
+                        .map(option => option.value)
+                        .join(',')
+                """)
+                input_state[selector] = selected_values
         
         return BrowserState(
             html=visible_html,
@@ -592,6 +619,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             fillable_selectors=fillable_selectors,
             clickable_selectors=clickable_selectors,
             selectable_selectors=selectable_selectors,
-            checkable_selectors=checkable_selectors
+            checkable_selectors=checkable_selectors,
+            input_state=input_state
         )
 

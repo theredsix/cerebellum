@@ -184,13 +184,6 @@ tools = [
             },
         ]
 
-tool_config = {
-  "function_calling_config": {
-    "mode": "AUTO",
-    # "allowed_function_names": ["click", "fill", "focus", "achieved", "unreachable"]
-  },
-}
-
 class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, BrowserActionResult]):
     def __init__(self, base_planner: AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult], display_page: Page):
         super().__init__(
@@ -309,8 +302,14 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
         )
 
 class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult]):
+    tool_config = {
+        "function_calling_config": {
+            "mode": "ANY",
+            "allowed_function_names": ["click", "fill", "check", "select", "focus", "goto", "achieved", "unreachable"]
+        },
+    }
 
-    def __init__(self, api_key: str, model_name: str = "gemini-1.5-pro-exp-0827", vertex_location: str = None, vertex_project_id: str = None):
+    def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash-exp-0827", vertex_location: str = None, vertex_project_id: str = None):
         self.api_key = api_key
         self.model_name = model_name
         self.temperature = 0
@@ -345,12 +344,68 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
 
         return (headers, url)
 
+    @classmethod
+    def format_tools_to_openapi(cls, tools: List[Dict[str, Any]]) -> Dict[str, Any]:
+        openapi_schema = {
+            "type": "OBJECT",
+            "properties": {
+                "1_prior_steps": {
+                    "type": "STRING",
+                    "description": "Your concise summary of prior steps and their outcomes"
+                },
+                "2_current_state": {
+                    "type": "STRING",
+                    "description": "Your concise summary of the current webpage. Always describe the current state of any visible forms"
+                },
+                "3_potential_actions": {
+                    "type": "ARRAY",
+                    "description": "Plan out the 5 best actions to move closer to your goal",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "action": {"type": "STRING"},
+                        }
+                    }
+                },
+                "4_action_analysis": {
+                    "type": "STRING",
+                    "description": "Analyze the potential actions and assess the best one"
+                },
+                "5_next_action": {
+                    "type": "STRING",
+                    "enum": [tool["name"] for tool in tools]
+                },
+                "6_css_selector": {
+                    "type": "STRING",
+                },
+                "7_value": {
+                    "type": "STRING",
+                }
+            },
+            "required": ["1_prior_steps", "2_current_state", "3_potential_actions", "4_action_analysis", "5_next_action", "6_css_selector", "7_value"]
+        }
+
+        # for tool in tools:
+        #     action_schema = {
+        #         "type": "object",
+        #         "properties": {
+        #             "name": {"type": "string", "enum": [tool["name"]]},
+        #             "parameters": tool["parameters"]
+        #         },
+        #         "required": ["name", "parameters"]
+        #     }
+        #     openapi_schema["properties"]["next_browser_action"]["oneOf"].append(action_schema)
+
+        print(json.dumps(openapi_schema, indent=2))
+
+        return openapi_schema
 
     def generate_content(self, system_instructions: str, contents: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature=0) -> Dict[str, Any]:
         if (self.use_vertex):
             headers, url = self.get_vertex_config()
         else:
             headers, url = self.get_ai_studio_config()
+      
         
         payload = {
             "system_instruction": {
@@ -359,14 +414,10 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                 }
             },
             "contents": contents,
-            "tools": [
-                {
-                    "function_declarations": tools
-                }
-            ],
-            "tool_config": tool_config,
             "generation_config": {
-                "temperature": temperature
+                "temperature": temperature,
+                "response_mime_type": "application/json",
+                "response_schema": GeminiBrowserPlanner.format_tools_to_openapi(tools)
             }
         }
         
@@ -482,8 +533,9 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
     
     def get_system_prompt(self, goal: str):
         system_prompt = f'''
-You are an expert developer in CSS and HTML with an excellent knowledge of jQuery and CSS selectors.
-Given a webpage's HTML and full + viewport screenshot, decide the best action to take to complete the following goal.
+You are a helpful assistant with tool calling capabilities. You have expert knowledge in CSS, HTML, playwright, puppeteer and CSS selectors.
+
+Given a webpage's HTML and full + viewport screenshot, please respond with a JSON for a function call with its proper arguments that takes the next action toward completing the goal below. Follow all key considerations in crafting your function call.
 
 Key considerations:
 * Only consider the goal achieved if and only if the current state and function call history achieves ALL parts of the goal
@@ -495,6 +547,9 @@ Key considerations:
   2. Unique class-based selectors
   3. Attribute selectors
   4. Combination of tag and class/attribute
+* A radio button input is selected when it has the 'checked' attribute, (i.e. checked="checked")
+* A checkbox input is selected when it has the 'checked' attribute, (i.e. checked="checked")
+* Click to select or check radio buttons and checkboxes
 * Target element argument of click() functionCall must match a css selector from 'Clickable Elements'
 * Target element argument of fill() functionCall must match a css selector from 'Fillable Elements'
 * If you believe the goal cannot be achieved, call the "unreachable" function. 
@@ -655,9 +710,12 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
         text_state.append(f"Current URL:\n{state.url}\n")
         text_state.append(f"Current HTML:\n{state.html}\n")
         text_state.append(f"Clickable Elements\n###\n{clickable_selectors}\n###")
-        text_state.append(f"Fillable Elements\n###\n{fillable_selectors}\n###")
-        text_state.append(f"Checkable Elements\n###\n{checkable_selectors}\n###")
-        text_state.append(f"Selectable Elements\n###\n{selectable_selectors}\n###")
+        text_state.append(f"\nFillable Elements: ###\n{fillable_selectors}\n###\n")
+        text_state.append(f"\nCheckable Elements: ###\n{checkable_selectors}\n###\n")
+        text_state.append(f"\nSelectable Elements: ###\n{selectable_selectors}\n###\n")
+        
+        input_state_text = '\n'.join([f"{selector}: {value}" for selector, value in state.input_state.items()])
+        text_state.append(f"\nInput Element States: ###\n{input_state_text}\n###\n")
 
         user_message = {
             "role": "user",
@@ -693,8 +751,9 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
     
     def get_system_prompt(self, goal: str):
         system_prompt = f'''
-You are an expert developer in CSS and HTML with an excellent knowledge of jQuery and CSS selectors.
-Given a webpage's HTML and full + viewport screenshot, decide the best action to take to complete the following goal.
+You are a helpful assistant with tool calling capabilities. You have expert knowledge in CSS, HTML, playwright, puppeteer and CSS selectors.
+
+Given a webpage's HTML and full + viewport screenshot, please respond with a JSON for a function call with its proper arguments that takes the next action toward completing the goal below. Follow all key considerations in crafting your function call.
 
 Key considerations:
 * Only consider the goal achieved if and only if the current state and function call history achieves ALL parts of the goal
@@ -706,8 +765,15 @@ Key considerations:
   2. Unique class-based selectors
   3. Attribute selectors
   4. Combination of tag and class/attribute
+* A radio button input is selected when it has the 'checked' attribute, (i.e. checked="checked")
+* A checkbox input is selected when it has the 'checked' attribute, (i.e. checked="checked")
+* Use "check" function for checking radio buttons and checkboxes
+* Use "select" function for setting values in select elements
+* Always select ALL desired values for a select element in one function call
 * Target element argument of click() functionCall must match a css selector from 'Clickable Elements'
 * Target element argument of fill() functionCall must match a css selector from 'Fillable Elements'
+* Target element argument of check() functionCall must match a css selector from 'Checkable Elements'
+* Target element argument of select() functionCall must match a css selector from 'Selectable Elements'
 * If you believe the goal cannot be achieved, call the "unreachable" function. 
 * If you believe the HTML and viewport screenshot shows that the goal has already been achieved without any further action from the user or you, call the "achieved" function.
 * Always explain your reasoning the "reasoning" argument to the function called.

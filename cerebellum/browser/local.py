@@ -55,14 +55,14 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
         with assistant():
             response = prompt + '{ "prior_steps": "' + gen('prior_steps', stop_regex=',\s*"current_state"') + \
                 ',\n"current_state": "' + gen('current_state', stop_regex=',\s*"potential_actions"') + \
-                f''',\n"potential_actions": "Top 5 potential actions to advance towards goal are:
-    1. {gen(stop='2.')}
-    2. {gen(stop='3.')}
-    3. {gen(stop='4.')}
-    4. {gen(stop='5.')}
-    5. {gen(stop='"action_analysis":')}''' + \
+                f''',\n"potential_actions": "Top 5 potential actions to advance towards goal in ANY ORDER are:
+    *: {gen(stop='*:')}
+    *: {gen(stop='*:')}
+    *: {gen(stop='*:')}
+    *: {gen(stop='*:')}
+    *: {gen(stop='"action_analysis":')}''' + \
                 '"action_analysis": "' + gen('action_analysis', stop_regex=',\s*"name"') + \
-                f''',\n"name": "{select(["click", "fill", "focus", "goto", "achieved", "unreachable"], name="name")}"'''
+                f''',\n"name": "{select(["click","select", "check", "fill", "focus", "goto", "achieved", "unreachable"], name="name")}"'''
             
             print(response)
 
@@ -73,6 +73,14 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
             if response['name'] == 'click':
                 response = response + f''', "parameters": {{"css_selector": "{select(state.clickable_selectors, name="css_selector")}"}}'''
                 args['css_selector'] = response['css_selector']
+            if response['name'] == 'check':
+                response = response + f''', "parameters": {{"css_selector": "{select(state.checkable_selectors, name="css_selector")}"}}'''
+                args['css_selector'] = response['css_selector']
+            if response['name'] == 'select':
+                response = response + f''', "parameters": {{"css_selector": "{select([key for key in state.selectable_selectors.keys()], name="css_selector")}", "values": ["{gen('values', stop=']')}]}}'''
+                args['css_selector'] = response['css_selector']
+                print(response['values'])
+                args['values'] = json.loads('["' + response['values']+ ']')
             elif response['name'] == 'fill':
                 response = response + f''', "parameters": {{"css_selector": "{select(state.fillable_selectors, name="css_selector")}", "text": ''' + \
                     gen('text', stop_regex=',\s*"press_enter"') + \
@@ -152,15 +160,22 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
         return chat_messages
     
 
-    def format_state_into_chat(self, state: BrowserState, goal: str):
+    def format_state_into_chat(self, state: BrowserState, current_step: int):
         clickable_selectors = '\n'.join(state.clickable_selectors)
         fillable_selectors = '\n'.join(state.fillable_selectors)
+        checkable_selectors = '\n'.join(state.checkable_selectors)
+        selectable_selectors = '\n'.join([selector for selector, options in state.selectable_selectors.items()])
 
         text_state = []
-        text_state.append(f"\nCurrent URL:\n{state.url}\n")
+        text_state.append(f"\nURL at step {current_step}:\n{state.url}\n")
         text_state.append(f"\nCurrent HTML:\n{state.html}\n")
         text_state.append(f"\nClickable Elements: ###\n{clickable_selectors}\n###\n")
         text_state.append(f"\nFillable Elements: ###\n{fillable_selectors}\n###\n")
+        text_state.append(f"\nCheckable Elements: ###\n{checkable_selectors}\n###\n")
+        text_state.append(f"\nSelectable Elements: ###\n{selectable_selectors}\n###\n")
+        
+        input_state_text = '\n'.join([f"{selector}: {value}" for selector, value in state.input_state.items()])
+        text_state.append(f"\nInput Element States: ###\n{input_state_text}\n###\n")
 
         user_message = {
             "role": "user",
@@ -225,9 +240,13 @@ Key considerations:
   4. Combination of tag and class/attribute
 * A radio button input is selected when it has the 'checked' attribute, (i.e. checked="checked")
 * A checkbox input is selected when it has the 'checked' attribute, (i.e. checked="checked")
-* Click to select or check radio buttons and checkboxes
+* Use "check" function for checking radio buttons and checkboxes
+* Use "select" function for setting values in select elements
+* Always select ALL desired values for a select element in one function call
 * Target element argument of click() functionCall must match a css selector from 'Clickable Elements'
 * Target element argument of fill() functionCall must match a css selector from 'Fillable Elements'
+* Target element argument of check() functionCall must match a css selector from 'Checkable Elements'
+* Target element argument of select() functionCall must match a css selector from 'Selectable Elements'
 * If you believe the goal cannot be achieved, call the "unreachable" function. 
 * If you believe the HTML and viewport screenshot shows that the goal has already been achieved without any further action from the user or you, call the "achieved" function.
 * Always explain your reasoning the "reasoning" argument to the function called.
@@ -252,7 +271,7 @@ Goal:
     def get_next_action(self, goal: str, state: BrowserState, 
                         session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]) -> BrowserAction:
         system_prompt = self.get_system_prompt(goal)
-        current_state_msg = self.format_state_into_chat(state, goal)
+        current_state_msg = self.format_state_into_chat(state, len(session_history))
         history = self.format_actions_into_chats(session_history)
 
         # Append current_state_msg to history
