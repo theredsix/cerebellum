@@ -39,7 +39,7 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
         outcome: BrowserActionOutcome = None
         starting_url = self.page.url    
         
-        print(f"INTENT: {action.reason}")
+        print(f"INTENT: {action.action_analysis}")
 
         # Ensure the css_selector can select an element if provided
         target_element = None

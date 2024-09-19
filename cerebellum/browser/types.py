@@ -28,8 +28,11 @@ class BrowserState(BaseState):
 @dataclass
 class BrowserAction(BaseAction):
     function: str
-    args: dict[str, str] # arg-name: arg-value
-    reason: str # Reason for taking this action
+    args: Dict[str, str] # arg-name: arg-value
+    prior_steps: str
+    current_state: str
+    top_5_actions: List[str]
+    action_analysis: str
 
 @dataclass
 class BrowserActionResult(BaseResult):

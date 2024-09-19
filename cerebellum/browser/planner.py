@@ -219,8 +219,12 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
             <h1>Action Review</h1>
             <div id="recommended-action">
                 <h2>Recommended Action</h2>
+                <p id="rec-prior-steps">Prior Steps: {html.escape(recommended_action.prior_steps)}</p>
+                <p id="rec-current-state">Current State: {html.escape(recommended_action.current_state)}</p>
+                <p id="rec-top-5-actions">Top 5 Actions:</p>
+                {' '.join([f'<p>Action {i+1}: {html.escape(action)}</p>' for i, action in enumerate(recommended_action.top_5_actions)])}
+                <p id="rec-action-analysis">Action Analysis: {html.escape(recommended_action.action_analysis)}</p>
                 <p id="rec-function">Function: {html.escape(recommended_action.function)}</p>
-                <p id="rec-reasoning">Reasoning: {html.escape(recommended_action.reason)}</p>
                 <p id="rec-css-selector">CSS Selector: {html.escape(recommended_action.args.get('css_selector', 'N/A'))}</p>
                 <p id="rec-text">Text: {html.escape(recommended_action.args.get('text', 'N/A'))}</p>
                 <button onclick="continueRecommendedAction()">Continue with Recommended Action</button>
@@ -235,8 +239,14 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
                     <option value="achieved" {('selected' if recommended_action.function == 'achieved' else '')}>Achieved</option>
                     <option value="unreachable" {('selected' if recommended_action.function == 'unreachable' else '')}>Unreachable</option>
                 </select>
-                <label for="reasoning">Reasoning:</label>
-                <input type="text" id="reasoning" value="{html.escape(recommended_action.reason)}">
+                <label for="prior-steps">Prior Steps:</label>
+                <input type="text" id="prior-steps" value="{html.escape(recommended_action.prior_steps)}">
+                <label for="current-state">Current State:</label>
+                <input type="text" id="current-state" value="{html.escape(recommended_action.current_state)}">
+                <label for="top-5-actions">Top 5 Actions:</label>
+                {' '.join([f'<input type="text" id="top-5-action-{i+1}" value="{html.escape(action)}">' for i, action in enumerate(recommended_action.top_5_actions)])}
+                <label for="action-analysis">Action Analysis:</label>
+                <input type="text" id="action-analysis" value="{html.escape(recommended_action.action_analysis)}">
                 <label for="css-selector">CSS Selector:</label>
                 <input type="text" id="css-selector" value="{html.escape(recommended_action.args.get('css_selector', ''))}">
                 <label for="text">Text (for fill action):</label>
@@ -263,7 +273,16 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
                             text: $('#text').val(),
                             press_enter: $('#press-enter').is(':checked')
                         }},
-                        reason: $('#reasoning').val(),
+                        prior_steps: $('#prior-steps').val(),
+                        current_state: $('#current-state').val(),
+                        top_5_actions: [
+                            $('#top-5-action-1').val(),
+                            $('#top-5-action-2').val(),
+                            $('#top-5-action-3').val(),
+                            $('#top-5-action-4').val(),
+                            $('#top-5-action-5').val()
+                        ],
+                        action_analysis: $('#action-analysis').val(),
                     }};
                     // Send action back to Python
                     window.finalAction = JSON.stringify(action);
@@ -274,7 +293,10 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
                     var action = {{
                         function: {json.dumps(recommended_action.function)},
                         args: {json.dumps(recommended_action.args)},
-                        reason: {json.dumps(recommended_action.reason)}
+                        prior_steps: {json.dumps(recommended_action.prior_steps)},
+                        current_state: {json.dumps(recommended_action.current_state)},
+                        top_5_actions: {json.dumps(recommended_action.top_5_actions)},
+                        action_analysis: {json.dumps(recommended_action.action_analysis)}
                     }};
                     // Send recommended action back to Python
                     window.finalAction = JSON.stringify(action);
@@ -298,7 +320,10 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
         return BrowserAction(
             function=parsed_action['function'],
             args=parsed_action['args'],
-            reason=parsed_action['reason']
+            prior_steps=parsed_action['prior_steps'],
+            current_state=parsed_action['current_state'],
+            top_5_actions=parsed_action['top_5_actions'],
+            action_analysis=parsed_action['action_analysis']
         )
 
 class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult]):
@@ -357,7 +382,7 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                     "type": "STRING",
                     "description": "Your concise summary of the current webpage. Always describe the current state of any visible forms"
                 },
-                "3_potential_actions": {
+                "3_top_5_potential_actions": {
                     "type": "ARRAY",
                     "description": "Plan out the 5 best actions to move closer to your goal",
                     "items": {
@@ -373,16 +398,22 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                 },
                 "5_next_action": {
                     "type": "STRING",
+                    "description": "The name of the next action or recognition that the goal has been achieved or is impossible",
                     "enum": [tool["name"] for tool in tools]
                 },
                 "6_css_selector": {
                     "type": "STRING",
+                    "description": "A CSS selector targeting the element which the next action is meant for"
                 },
-                "7_value": {
-                    "type": "STRING",
+                "7_values": {
+                    "type": "ARRAY",
+                    "description": "Values to set on the targeted element for the next action",
+                    "items": {
+                        "type": "STRING",
+                    }
                 }
             },
-            "required": ["1_prior_steps", "2_current_state", "3_potential_actions", "4_action_analysis", "5_next_action", "6_css_selector", "7_value"]
+            "required": ["1_prior_steps", "2_current_state", "3_top_5_potential_actions", "4_action_analysis", "5_next_action", "6_css_selector", "7_values"]
         }
 
         # for tool in tools:
@@ -521,12 +552,17 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
 
         clickable_selectors = '\n'.join(state.clickable_selectors)
         fillable_selectors = '\n'.join(state.fillable_selectors)
+        checkable_selectors = '\n'.join(state.checkable_selectors)
+        selectable_selectors = '\n'.join([selector for selector, options in state.selectable_selectors.items()])
+        input_state_text = '\n'.join([f"{selector}: {value}" for selector, value in state.input_state.items()])
         chat_message["parts"].extend([
             {"text": f"URL: {state.url}"},
             {"text": f"HTML:\n{state.html}"},
             {"text": f"Clickable Elements\n###\n{clickable_selectors}\n###"},
             {"text": f"Fillable Elements\n###\n{fillable_selectors}\n###"},
-            # {"text": f"Goal:\n{goal}"},
+            {"text": f"Checkable Elements\n###\n{checkable_selectors}\n###"},
+            {"text": f"Selectable Elements\n###\n{selectable_selectors}\n###"},
+            {"text": f"Input Element States: ###\n{input_state_text}\n###\n"}
         ])
 
         return chat_message
@@ -585,13 +621,42 @@ Goal:
 
         print(response)
 
-        function_call = response['candidates'][0]['content']['parts'][0]['functionCall']
-        token_count = response['usageMetadata']['totalTokenCount']
+        function_call = json.loads(response['candidates'][0]['content']['parts'][0]['text'])
 
-        print (f"Token Usage: {token_count}")
+        # Create a BrowserAction from the function_call
+        action_name = function_call['5_next_action']
+        
+        # Find the corresponding tool definition
+        tool_def = next((tool for tool in tools if tool['name'] == action_name), None)
+        
+        if tool_def is None:
+            raise ValueError(f"No tool definition found for action: {action_name}")
+        
+        # Prepare the args dictionary
+        args = {}
+        if 'css_selector' in tool_def['parameters']['properties']:
+            args['css_selector'] = function_call['6_css_selector']
+        
+        if 'text' in tool_def['parameters']['properties']:
+            args['text'] = function_call['7_values'][0] if function_call['7_values'] else ''
+        
+        if 'values' in tool_def['parameters']['properties']:
+            args['values'] = function_call['7_values']
+        
+        if 'press_enter' in tool_def['parameters']['properties']:
+            args['press_enter'] = False
+        
+        # Create the BrowserAction object
+        browser_action = BrowserAction(
+            function=action_name,
+            args=args,
+            prior_steps=function_call['1_prior_steps'],
+            current_state=function_call['2_current_state'],
+            top_5_actions=[action['action'] for action in function_call['3_top_5_potential_actions']],
+            action_analysis=function_call['4_action_analysis']
+        )
 
-        args = {k: v for k, v in function_call['args'].items() if k != 'reasoning'}
-        return BrowserAction(function_call['name'], args, function_call['args']['reasoning'])
+        return browser_action
 
 
 
@@ -758,6 +823,7 @@ Given a webpage's HTML and full + viewport screenshot, please respond with a JSO
 Key considerations:
 * Only consider the goal achieved if and only if the current state and function call history achieves ALL parts of the goal
 * A goal is not achieved if you believe there is one or more additional action necessary (i.e clicking, filling, submitting)
+* ALWAYS GENERATE 5 POTENTIAL ACTIONS
 * Verify search results align with the goal; don't assume accuracy
 * You are provided with a "viewport" view of the webpage and a full screenshot of the entire webpage.
 * When selecting elements, use the following priority order for CSS selectors:
