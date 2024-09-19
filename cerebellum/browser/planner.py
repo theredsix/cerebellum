@@ -255,6 +255,30 @@ class HumanBrowserPlanner(SupervisorPlanner[BrowserState, BrowserAction, Browser
                 <input type="checkbox" id="press-enter" {('checked' if recommended_action.args.get('press_enter', False) else '')}>
                 <button onclick="submitCustomAction()">Submit Custom Action</button>
             </div>
+            <h2>Clickable Elements</h2>
+            <ul>
+                {' '.join([f'<li>{html.escape(selector)}</li>' for selector in current_state.clickable_selectors])}
+            </ul>
+            
+            <h2>Fillable Elements</h2>
+            <ul>
+                {' '.join([f'<li>{html.escape(selector)}</li>' for selector in current_state.fillable_selectors])}
+            </ul>
+            
+            <h2>Checkable Elements</h2>
+            <ul>
+                {' '.join([f'<li>{html.escape(selector)}</li>' for selector in current_state.checkable_selectors])}
+            </ul>
+            
+            <h2>Selectable Elements</h2>
+            <ul>
+                {' '.join([f'<li>{html.escape(selector)}: {", ".join(html.escape(option) for option in options)}</li>' for selector, options in current_state.selectable_selectors.items()])}
+            </ul>
+            
+            <h2>Input State</h2>
+            <ul>
+                {' '.join([f'<li>{html.escape(selector)}: {html.escape(str(value))}</li>' for selector, value in current_state.input_state.items()])}
+            </ul>
             <h2>Viewport Screenshot</h2>
             <img src="data:image/png;base64,{current_state.screenshot_viewport}" alt="Viewport Screenshot">
             
@@ -656,7 +680,7 @@ Goal:
             args['values'] = function_call['7_values']
         
         if 'press_enter' in tool_def['parameters']['properties']:
-            args['press_enter'] = False
+            args['press_enter'] = True
         
         # Create the BrowserAction object
         browser_action = BrowserAction(

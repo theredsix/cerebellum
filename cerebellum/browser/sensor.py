@@ -323,10 +323,10 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             'is_checked'
         ]
 
-        allowed_tags = ['label', 'svg', 'img', 'button', 'input', 'a', 'textarea', 'select', 'optgroup', 'option']
+        allowed_tags = ['label', 'svg', 'img', 'button', 'input', 'a', 'textarea', 'select', 'optgroup', 'option', 'select']
 
         for tag in soup.find_all(True):  # Find all tags
-            if tag.name in allowed_tags or tag.attrs.get('draggable') or tag.attrs.get('contenteditable'):
+            if tag.name in allowed_tags or tag.attrs.get('draggable') or tag.attrs.get('contenteditable') or tag in cls.find_clickable_elements(soup):
                 tag.attrs = {attr: value for attr, value in tag.attrs.items() if attr in allowed_attributes and value not in ('', None)}
             else:
                 tag.attrs = {}
@@ -589,21 +589,21 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         for selector in fillable_selectors:
             element = self.page.locator(selector)
             if element.count() > 0:
-                value = element.input_value()
+                value = element.nth(0).input_value()
                 input_state[selector] = value
 
         # Handle checkable elements
         for selector in checkable_selectors:
             element = self.page.locator(selector)
             if element.count() > 0:
-                is_checked = element.is_checked()
+                is_checked = element.nth(0).is_checked()
                 input_state[selector] = 'checked' if is_checked else 'unchecked'
 
         # Handle selectable elements
         for selector in selectable_selectors:
             element = self.page.locator(selector)
             if element.count() > 0:
-                selected_values = element.evaluate("""
+                selected_values = element.nth(0).evaluate("""
                     el => Array.from(el.selectedOptions)
                         .map(option => option.value)
                         .join(',')
