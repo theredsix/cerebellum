@@ -1,3 +1,5 @@
+.auth
+
 # Training files
 browser_action_*.json
 browser_action_*.html
