@@ -486,7 +486,7 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
             
             # Add the action as a model message
             arg_dict = past_action.action.args
-            arg_dict['reasoning'] = past_action.action.reason
+            arg_dict['reasoning'] = past_action.action.action_analysis
             function_call_msg = {
                 "role": "model",
                 "parts": [
@@ -733,7 +733,7 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
             
             # Add the action as an assistant message
             arg_dict = past_action.action.args.copy()
-            arg_dict['reasoning'] = past_action.action.reason
+            arg_dict['reasoning'] = past_action.action.action_analysis
             assistant_message = {
                 "role": "assistant",
                 "content": None,
