@@ -1,7 +1,5 @@
 from cerebellum.browser.local import LocalLLMBrowserPlanner
-from cerebellum.browser.planner import HumanBrowserPlanner, OpenAIBrowserPlanner
-from cerebellum.browser.session import BrowserSession
-from cerebellum.memory.file import FileSessionMemory
+from cerebellum import BrowserSessionMemory, HumanBrowserPlanner, GeminiBrowserPlanner, BrowserSession
 from playwright.sync_api import sync_playwright
 import os
 
@@ -51,11 +49,11 @@ with sync_playwright() as p:
     create_radio_buttons_page(page);
     # page.goto("https://www.dmv.ca.gov/")
 
-    recorders = [FileSessionMemory('session.cere')]
-    # base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
+    recorders = [BrowserSessionMemory('checkbox.cere.zip')]
+    base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'], model_name='gemini-1.5-pro-exp-0827')
     # base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
-    base_planner = OpenAIBrowserPlanner(api_key="ollama", model_name="llama3.1:8b-instruct-fp16", origin="http://localhost:11434")
-    base_planner = LocalLLMBrowserPlanner()
+    # base_planner = OpenAIBrowserPlanner(api_key="ollama", model_name="llama3.1:8b-instruct-fp16", origin="http://localhost:11434")
+    # base_planner = LocalLLMBrowserPlanner()
 
     planner = HumanBrowserPlanner(base_planner, control_page)
 

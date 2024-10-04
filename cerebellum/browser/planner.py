@@ -664,7 +664,7 @@ Goal:
 
 class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult], TrainablePlanner[List[Any], BrowserState, BrowserAction, BrowserActionResult]):
 
-    def __init__(self, api_key: str, model_name: str = "gpt-4o-mini", vision_capabale: bool = False, origin = "https://api.openai.com"):
+    def __init__(self, api_key: str, model_name: str = "gpt-4o-mini", vision_capabale: bool = True, origin = "https://api.openai.com"):
         self.api_key = api_key
         self.model_name = model_name
         self.temperature = 0
@@ -766,14 +766,14 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                 ]
             }
             if vision_capabale and past_action.state.screenshot_viewport:
-                user_message["content"].append({
+                user_message["content"].append(
                     {
                         "type": "image_url",
                         "image_url": {
                             "url": f"data:image/jpeg;base64,{past_action.state.screenshot_viewport}"
                         }
                     }
-                })
+                )
 
             
             chat_messages.append(user_message)
@@ -820,8 +820,6 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
         fillable_selectors = '\n'.join(state.fillable_selectors)
         checkable_selectors = '\n'.join(state.checkable_selectors)
 
-        print(state.selectable_selectors)
-
         selectable_selectors = '\n'.join([f"{selector}: {', '.join(options)}" for selector, options in state.selectable_selectors.items()])
 
         text_state = []
@@ -846,24 +844,24 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
         }
 
         if vision_capabale and state.screenshot_viewport:
-            user_message["content"].append({
+            user_message["content"].append(
                 {
                     "type": "image_url",
                     "image_url": {
                         "url": f"data:image/jpeg;base64,{state.screenshot_viewport}"
                     }
                 }
-            })
+            )
 
         if vision_capabale and state.screenshot_full:
-                user_message["content"].append({
+                user_message["content"].append(
                     {
                         "type": "image_url",
                         "image_url": {
                             "url": f"data:image/jpeg;base64,{state.screenshot_full}"
                         }
                     }
-                })
+                )
 
         return user_message
     
