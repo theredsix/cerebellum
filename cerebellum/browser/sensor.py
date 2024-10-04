@@ -136,8 +136,8 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             if len(matching_elements) > 1:
                 inner_text = element.get_text(strip=True)
                 if inner_text:
-                    # Escape special characters in the inner text
-                    escaped_text = re.escape(inner_text)
+                    # Escape special characters in the inner text but not spaces
+                    escaped_text = re.escape(inner_text).replace("\\ ", " ")
                     selector_parts.append(f':contains("{escaped_text}")')
                 else:
                     # If no inner text, try to use a unique attribute
@@ -535,8 +535,6 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         
         # Parse the content with BeautifulSoup
         soup = BeautifulSoup(page_html, 'html.parser')
-
-        print(soup.prettify())
 
         # BrowserSensor.remove_nonvisible_elements(soup)
 

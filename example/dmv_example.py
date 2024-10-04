@@ -16,11 +16,12 @@ with sync_playwright() as p:
     page = context.new_page()
     control_page = context.new_page()
     # debug_page = context.new_page()
-    page.goto("https://www.dmv.ca.gov/")
+    # page.goto("https://www.dmv.ca.gov/")
+    page.goto("https://www.dmv.ca.gov/wasapp/vrir/start.do?localeName=en")
 
     recorders = [FileSessionMemory('session.cere')]
-    base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
-    # base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
+    # base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
+    base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
     # base_planner = LocalLLMBrowserPlanner()
 
     planner = HumanBrowserPlanner(base_planner, control_page)

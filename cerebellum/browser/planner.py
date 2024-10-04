@@ -1,4 +1,5 @@
 import html
+import copy
 import json
 import random
 import string
@@ -17,10 +18,6 @@ tools = [
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
-                        },
                         "css_selector": {
                             "type": "string",
                             "description": '''A CSS selector targeting the element to click, the target element MUST match a css selector from 'Clickable Elements'. use the following priority order for CSS selectors:
@@ -30,7 +27,8 @@ tools = [
   4. Combination of tag and class/attribute''',
                         }
                     },
-                    "required": ["reasoning", "css_selector"],
+                    "required": ["css_selector"],
+                    "additionalProperties": False
                 },
             },
             {
@@ -39,10 +37,6 @@ tools = [
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
-                        },
                         "css_selector": {
                             "type": "string",
                             "description": '''A CSS selector targeting the element to click, the target element MUST match a css selector from 'Checkable Elements'. use the following priority order for CSS selectors:
@@ -52,7 +46,8 @@ tools = [
   4. Combination of tag and class/attribute''',
                         }
                     },
-                    "required": ["reasoning", "css_selector"],
+                    "required": ["css_selector"],
+                    "additionalProperties": False
                 },
             },
             {
@@ -61,10 +56,6 @@ tools = [
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
-                        },
                         "css_selector": {
                             "type": "string",
                             "description": '''A CSS selector targeting the element to fill, the target element MUST match a css selector from 'Fillable Elements'. use the following priority order for CSS selectors:
@@ -82,7 +73,8 @@ tools = [
                             "description": "If true, the enter key will be pressed after the input is filled. This is helpful for form or search submissions",
                         },
                     },
-                    "required": ["reasoning", "css_selector", "text", "press_enter"],
+                    "required": ["css_selector", "text", "press_enter"],
+                    "additionalProperties": False
                 },
             },
             {
@@ -91,10 +83,6 @@ tools = [
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
-                        },
                         "css_selector": {
                             "type": "string",
                             "description": '''A CSS selector targeting the select element, the target element MUST match a css selector from 'Selectable Elements'. use the following priority order for CSS selectors:
@@ -111,7 +99,8 @@ tools = [
                             }
                         },
                     },
-                    "required": ["reasoning", "css_selector", "values"],
+                    "required": ["css_selector", "values"],
+                    "additionalProperties": False
                 },
             },
             {
@@ -120,10 +109,6 @@ tools = [
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
-                        },
                         "css_selector": {
                             "type": "string",
                             "description": '''A CSS selector targeting the element to focus. Use the following priority order for CSS selectors:
@@ -133,7 +118,8 @@ tools = [
   4. Combination of tag and class/attribute''',
                         },
                     },
-                    "required": ["reasoning", "css_selector"],
+                    "required": ["css_selector"],
+                    "additionalProperties": False
                 },
             },
             {
@@ -142,16 +128,13 @@ tools = [
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
-                        },
                         "href": {
                             "type": "string",
                             "description": "The URL you want the page to navigate to. This is the same as setting 'window.location.href'",
                         },
                     },
-                    "required": ["reasoning", "href"],
+                    "required": ["href"],
+                    "additionalProperties": False
                 },
             },
             {
@@ -160,12 +143,9 @@ tools = [
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
-                        },
                     },
-                    "required": ["reasoning"],
+                    "required": [],
+                    "additionalProperties": False
                 },
             },
             {
@@ -174,12 +154,9 @@ tools = [
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Your reasoning on the browsing session thus far and why you believe the current action is the right one",
-                        },
                     },
-                    "required": ["reasoning"],
+                    "required": [],
+                    "additionalProperties": False
                 },
             },
         ]
@@ -441,17 +418,6 @@ class GeminiBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
             "required": ["1_prior_steps", "2_current_state", "3_top_5_potential_actions", "4_action_analysis", "5_next_action", "6_css_selector", "7_values"]
         }
 
-        # for tool in tools:
-        #     action_schema = {
-        #         "type": "object",
-        #         "properties": {
-        #             "name": {"type": "string", "enum": [tool["name"]]},
-        #             "parameters": tool["parameters"]
-        #         },
-        #         "required": ["name", "parameters"]
-        #     }
-        #     openapi_schema["properties"]["next_browser_action"]["oneOf"].append(action_schema)
-
         print(json.dumps(openapi_schema, indent=2))
 
         return openapi_schema
@@ -698,26 +664,73 @@ Goal:
 
 class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult]):
 
-    def __init__(self, api_key: str, model_name: str = "gpt-4o", vision_capabale: bool = False, origin = "https://api.openai.com"):
+    def __init__(self, api_key: str, model_name: str = "gpt-4o-mini", vision_capabale: bool = False, origin = "https://api.openai.com"):
         self.api_key = api_key
         self.model_name = model_name
         self.temperature = 0
         self.vision_capabale = vision_capabale
         self.origin = origin
 
-    def generate_content(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature=0) -> Dict[str, Any]:
-        openai_tools = []
-        for tool in tools:
-            openai_tools.append({
-                "type": "function",
-                "function": tool
-            })
+    @classmethod
+    def convert_tools_to_structured_json(cls, state: BrowserState,):
+        openapi_tools = []
+        for tool in copy.deepcopy(tools):
+            openapi_tool = tool["parameters"]
+            
+            openapi_tool["properties"] = {
+                tool["name"]: {
+                    "type": "string",
+                    "description": tool["description"],
+                    "enum": [tool["name"]]
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the action to take",
+                    "enum": [tool["name"]]
+                },
+                **openapi_tool["properties"]
+            }
+
+            css_enum = None
+            if tool["name"] == "click":
+                if not state.clickable_selectors:
+                    continue
+                css_enum = state.clickable_selectors
+            elif tool["name"] == "check":
+                if not state.checkable_selectors:
+                    continue
+                css_enum = state.checkable_selectors
+            elif tool["name"] == "select":
+                if not state.selectable_selectors:
+                    continue
+                css_enum = list(state.selectable_selectors.keys())                
+            elif tool["name"] == "fill":
+                if not state.fillable_selectors:
+                    continue
+                css_enum = state.fillable_selectors
+
+            if css_enum:
+                css_enum = [x.replace("\\", "\\\\\\\\") for x in css_enum]
+                css_enum = [x.replace('"', "\\'") for x in css_enum]
+                openapi_tool["properties"]["css_selector"]["enum"] = css_enum
+                print(openapi_tool["properties"]["css_selector"]["enum"])
+
+            
+            openapi_tool["required"].insert(0, "name")
+            openapi_tool["required"].insert(0, tool["name"])
+
+            openapi_tools.append(openapi_tool)
+        return openapi_tools
+
+    def generate_content(self, messages: List[Dict[str, Any]], schema: Dict[str, Any], temperature=0) -> Dict[str, Any]:
         
         payload = {
             "model": self.model_name,
             "messages": messages,
-            "tools": openai_tools,
-            "tool_choice": "required",
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": schema
+            },
             "temperature": temperature
         }
 
@@ -908,14 +921,80 @@ Goal:
                 self.temperature = 1
             else:
                 self.temperature = min(1.0, self.temperature + 0.3)
+        
+        json_schema = {
+            "name": "next_action_reasoning",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "prior_steps": {
+                        "type": "string",
+                        "description": "Your concise summary of prior steps and their outcomes"
+                    },
+                    "current_state": {
+                        "type": "string",
+                        "description": "Your concise summary of the current webpage. Always describe the current state of any visible forms"
+                    },
+                    "top_5_potential_actions": {
+                        "type": "object",
+                        "description": "Plan out the 5 best actions to move closer to your goal",
+                        "properties": {
+                            "potential_action_1": { "type": "string" },
+                            "potential_action_2": { "type": "string" },
+                            "potential_action_3": { "type": "string" },
+                            "potential_action_4": { "type": "string" },
+                            "potential_action_5": { "type": "string" },
+                        },
+                        "required": ["potential_action_1", "potential_action_2", "potential_action_3", "potential_action_4", "potential_action_5"],
+                        "additionalProperties": False
+                    },
+                    "action_analysis": {
+                        "type": "string",
+                        "description": "Analyze the potential actions and assess the best one"
+                    },
+                    "next_action": {
+                        "anyOf": OpenAIBrowserPlanner.convert_tools_to_structured_json(current_page)
+                    }
+                },
+                "required": ["prior_steps", "current_state", "top_5_potential_actions", "action_analysis", "next_action"],
+                "additionalProperties": False
+            },
+            "strict": True,
+        }
 
-        response = self.generate_content(history, tools, self.temperature)
+        print(json.dumps(json_schema, indent=1))
+
+        response = self.generate_content(history, json_schema, self.temperature)
 
         print(response)
 
-        function_call = response["choices"][0]["message"]['tool_calls'][0]["function"]
-        raw_args = json.loads(function_call['arguments'])
+        b = response["choices"][0]["message"]['content'].replace("\\'", '\\"')
+        print(b)
+        json_response = json.loads(b)
 
-        args = {k: v for k, v in raw_args.items() if k != 'reasoning'}
-        return BrowserAction(function_call['name'], args, raw_args['reasoning'])
+        action_name = json_response["next_action"]["name"]
+        args = {
+            "css_selector": json_response["next_action"]["css_selector"]
+        }
+        
+        if action_name == "fill":
+            args["text"] = json_response["next_action"]["text"]
+            args["press_enter"] = json_response["next_action"]["press_enter"]
+        
+        browser_action = BrowserAction(
+            function=action_name,
+            args=args,
+            prior_steps=json_response["prior_steps"],
+            current_state=json_response["current_state"],
+            top_5_actions=[
+                json_response["top_5_potential_actions"]["potential_action_1"],
+                json_response["top_5_potential_actions"]["potential_action_2"],
+                json_response["top_5_potential_actions"]["potential_action_3"],
+                json_response["top_5_potential_actions"]["potential_action_4"],
+                json_response["top_5_potential_actions"]["potential_action_5"]
+            ],
+            action_analysis=json_response["action_analysis"]
+        )
+        
+        return browser_action
 
