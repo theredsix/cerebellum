@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, Type
 from typing import Generic, TypeVar
 
 @dataclass
@@ -32,13 +32,13 @@ class AbstractPlanner(ABC, Generic[StateT, ActionT, ResultT]):
     def get_next_action(self, goal: str, current_state: StateT, past_actions: list[RecordedAction[StateT, ActionT, ResultT]]) -> ActionT:
         pass
 
-class TrainablePlanner(ABC, Generic[TrainingDataT]):
-    @abstractmethod
-    def get_training_data(self, step: int = None) -> List[TrainingDataT]:
+class TrainablePlanner(ABC, Generic[TrainingDataT, StateT, ActionT, ResultT]):
+    @classmethod
+    @abstractmethod 
+    def convert_into_training_examples(cls, goal: str, actions: List[RecordedAction[StateT, ActionT, ResultT]]) -> List[TrainingDataT]:
         pass
 
 class SupervisorPlanner(AbstractPlanner[StateT, ActionT, ResultT]):
-
     def __init__(self, base_planner: AbstractPlanner[StateT, ActionT, ResultT]):
         super().__init__()
         self.base_planner = base_planner
@@ -121,5 +121,5 @@ class AbstractSessionRecorder(ABC, Generic[StateT, ActionT, ResultT]):
 class AbstractSessionMemory(AbstractSessionRecorder[StateT, ActionT, ResultT]):
     
     @abstractmethod
-    def retrieve(self) -> Tuple[str, List[RecordedAction]]:
+    def retrieve(self, state_type: Type[StateT], action_type: Type[ActionT], result_type: Type[ResultT]) -> Tuple[str, List[RecordedAction]]:
         pass

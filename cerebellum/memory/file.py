@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Type
 import json
 import zipfile
 from pathlib import Path
@@ -41,7 +41,7 @@ class FileSessionMemory(AbstractSessionMemory[StateT, ActionT, ResultT]):
 
         return True
 
-    def retrieve(self) -> Tuple[str, List[RecordedAction[StateT, ActionT, ResultT]]]:
+    def retrieve(self, state_type: Type[StateT], action_type: Type[ActionT], result_type: Type[ResultT]) -> Tuple[str, List[RecordedAction[StateT, ActionT, ResultT]]]:
         goal = ""
         actions = []
 
@@ -59,17 +59,17 @@ class FileSessionMemory(AbstractSessionMemory[StateT, ActionT, ResultT]):
                 with zip_file.open(action_file) as file:
                     action_data = json.load(file)
                     
-                    state = StateT(**{
+                    state = state_type(**{
                         field: action_data['state'][field]
                         for field in action_data['state']
                     })
                     
-                    action = ActionT(**{
+                    action = action_type(**{
                         field: action_data['action'][field]
                         for field in action_data['action']
                     })
                     
-                    result = ResultT(**{
+                    result = result_type(**{
                         field: action_data['result'][field]
                         for field in action_data['result']
                     })

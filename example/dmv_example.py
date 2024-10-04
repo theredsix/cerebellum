@@ -19,7 +19,7 @@ with sync_playwright() as p:
     # page.goto("https://www.dmv.ca.gov/")
     page.goto("https://www.dmv.ca.gov/wasapp/vrir/start.do?localeName=en")
 
-    recorders = [FileSessionMemory('session.cere')]
+    recorders = [FileSessionMemory('session.cerebellum.zip')]
     # base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
     base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
     # base_planner = LocalLLMBrowserPlanner()

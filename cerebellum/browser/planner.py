@@ -8,7 +8,7 @@ import requests
 import json
 from playwright.sync_api import Page
 from typing import List, Dict, Any
-from cerebellum.core import AbstractPlanner, SupervisorPlanner, RecordedAction
+from cerebellum.core import AbstractPlanner, SupervisorPlanner, RecordedAction, TrainablePlanner
 from cerebellum.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult, BrowserState
 
 tools = [
@@ -662,7 +662,7 @@ Goal:
 
 
 
-class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult]):
+class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult], TrainablePlanner[List[Any], BrowserState, BrowserAction, BrowserActionResult]):
 
     def __init__(self, api_key: str, model_name: str = "gpt-4o-mini", vision_capabale: bool = False, origin = "https://api.openai.com"):
         self.api_key = api_key
@@ -751,8 +751,8 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
 
         return response.json()
 
-
-    def format_actions_into_chats(self, session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]):
+    @classmethod
+    def format_actions_into_chats(cls, session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]], vision_capabale: bool, format_for_fine_tuning: bool = False):
         chat_messages = []
         for index, past_action in enumerate(session_history):
             # Add the state as a user message
@@ -765,7 +765,7 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                     }
                 ]
             }
-            if self.vision_capabale and past_action.state.screenshot_viewport:
+            if vision_capabale and past_action.state.screenshot_viewport:
                 user_message["content"].append({
                     {
                         "type": "image_url",
@@ -795,6 +795,10 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                     "type": "function"
                 }]
             }
+
+            if format_for_fine_tuning:
+                assistant_message["weight"] = 0
+
             chat_messages.append(assistant_message)
             
             # Add the result as a function message
@@ -810,8 +814,8 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
             chat_messages.append(function_message)
         return chat_messages
     
-
-    def format_state_into_chat(self, state: BrowserState, goal: str):
+    @classmethod
+    def format_state_into_chat(cls, state: BrowserState, vision_capabale: bool):
         clickable_selectors = '\n'.join(state.clickable_selectors)
         fillable_selectors = '\n'.join(state.fillable_selectors)
         checkable_selectors = '\n'.join(state.checkable_selectors)
@@ -841,7 +845,7 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
             ]
         }
 
-        if self.vision_capabale and state.screenshot_viewport:
+        if vision_capabale and state.screenshot_viewport:
             user_message["content"].append({
                 {
                     "type": "image_url",
@@ -851,7 +855,7 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
                 }
             })
 
-        if self.vision_capabale and state.screenshot_full:
+        if vision_capabale and state.screenshot_full:
                 user_message["content"].append({
                     {
                         "type": "image_url",
@@ -863,9 +867,14 @@ class OpenAIBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserA
 
         return user_message
     
-    def get_system_prompt(self, goal: str):
+    @classmethod
+    def get_system_prompt(cls, goal: str):
         system_prompt = f'''
 You are a helpful assistant with tool calling capabilities. You have expert knowledge in CSS, HTML, playwright, puppeteer and CSS selectors.
+
+You have access to the following function calls:
+
+{json.dumps(tools, indent=2)}
 
 Given a webpage's HTML and full + viewport screenshot, please respond with a JSON for a function call with its proper arguments that takes the next action toward completing the goal below. Follow all key considerations in crafting your function call.
 
@@ -903,16 +912,24 @@ Goal:
             "role": "system",
             "content": system_prompt
         }
-
-    def get_next_action(self, goal: str, current_page: BrowserState, 
-                        session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]) -> BrowserAction:
-        system_prompt = self.get_system_prompt(goal)
-        current_state_msg = self.format_state_into_chat(current_page, goal)
-        history = self.format_actions_into_chats(session_history)
+    
+    @classmethod
+    def get_message_history(cls, goal: str, current_page: BrowserState, 
+                            session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]], vision_capabale: bool) -> List[Dict[str, Any]]:
+        system_prompt = cls.get_system_prompt(goal)
+        current_state_msg = cls.format_state_into_chat(current_page, vision_capabale)
+        history = cls.format_actions_into_chats(session_history, vision_capabale, True)
 
         # Append current_state_msg to history
         history.insert(0, system_prompt)
         history.append(current_state_msg)
+
+        return history
+
+    def get_next_action(self, goal: str, current_page: BrowserState, 
+                        session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]]) -> BrowserAction:
+        
+        history = OpenAIBrowserPlanner.get_message_history(goal, current_page, session_history, self.vision_capabale)
 
         # Increase temperature on failures
         if session_history:
@@ -973,13 +990,22 @@ Goal:
         json_response = json.loads(b)
 
         action_name = json_response["next_action"]["name"]
-        args = {
-            "css_selector": json_response["next_action"]["css_selector"]
-        }
-        
-        if action_name == "fill":
+        args = {}
+
+        if "text" in json_response["next_action"]:
             args["text"] = json_response["next_action"]["text"]
+        
+        if "css_selector" in json_response["next_action"]:
+            args["css_selector"] = json_response["next_action"]["css_selector"]
+        
+        if "press_enter" in json_response["next_action"]:
             args["press_enter"] = json_response["next_action"]["press_enter"]
+        
+        if "values" in json_response["next_action"]:
+            args["values"] = json_response["next_action"]["values"]
+        
+        if "href" in json_response["next_action"]:
+            args["href"] = json_response["next_action"]["href"]
         
         browser_action = BrowserAction(
             function=action_name,
@@ -997,4 +1023,44 @@ Goal:
         )
         
         return browser_action
+    
+    @classmethod
+    def convert_into_training_examples(cls, goal: str, actions: List[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]], enable_vision: bool = True) -> List[Any]:
+        training_examples = []
+
+        for index in range(len(actions)):
+            print(f"Processing action {index + 1}/{len(actions)}")
+            session_history = actions[:index]
+            action = actions[index].action
+            state = actions[index].state
+            messages = OpenAIBrowserPlanner.get_message_history(goal, state, session_history, enable_vision)
+
+            inner_response = {
+                    "prior_steps": action.prior_steps,
+                    "current_state": action.current_state,
+                    "top_5_potential_actions": {
+                        "potential_action_1": action.top_5_actions[0],
+                        "potential_action_2": action.top_5_actions[1],
+                        "potential_action_3": action.top_5_actions[2],
+                        "potential_action_4": action.top_5_actions[3],
+                        "potential_action_5": action.top_5_actions[4],
+                    },
+                    "action_analysis": action.action_analysis,
+                    "next_action": {
+                        action.function: action.function,
+                        "name": action.function,
+                        **action.args
+                    }
+                }
+            
+            response = {
+                "role": "assistant",
+                "content": json.dumps(inner_response)
+            }
+
+            messages.append(response)
+
+            training_examples.append({"messages": messages})
+
+        return training_examples
 
