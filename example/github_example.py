@@ -15,8 +15,8 @@ with sync_playwright() as p:
     page.goto("https://www.github.com/")
 
     recorders = [FileSessionMemory('session.cere')]
-    base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'], model_name='gemini-1.5-pro-exp-0827')
-    # base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
+    # base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'], model_name='gemini-1.5-pro-exp-0827')
+    base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini", vision_capabale=False)
     # base_planner = LocalLLMBrowserPlanner()
 
     planner = HumanBrowserPlanner(base_planner, control_page)

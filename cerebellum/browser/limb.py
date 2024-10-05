@@ -49,12 +49,6 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                 print('css_selector', css_selector)
 
                 css_selector = BrowserLimb.strip_unnecessary_escaped_char(css_selector)
-
-                if ':contains(' in css_selector:
-                    # Replace :contains( with :has-text(
-                    css_selector = css_selector.replace(':contains(', ':has-text(')
-
-                    print('contains_text', css_selector)
                     
                 print('Final css_selector', css_selector)
 

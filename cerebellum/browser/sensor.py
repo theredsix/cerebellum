@@ -118,40 +118,37 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         tag_name = element.name
         selector_parts.append(tag_name)
 
+        # Add href if the element is an 'a' tag and has an href attribute
+        if tag_name == 'a' and element.get('href'):
+            href = element.get('href')
+            selector_parts.append(f'[href="{href}"]')
+
+        # Add aria-label if it exists
+        if element.get('aria-label'):
+            aria_label = element.get('aria-label')
+            selector_parts.append(f'[aria-label="{aria_label}"]')
+        elif element.get_text(strip=True):
+            inner_text = element.get_text(strip=True)
+            # Escape special characters in the inner text but not spaces
+            escaped_text = re.escape(inner_text).replace("\\ ", " ")
+            selector_parts.append(f':has-text("{escaped_text}")')
+
         # Add id if it exists (highest priority)
         element_id = element.get('id')
+        element_classes = element.get('class')
         if element_id:
             selector_parts.append(f"#{element_id}")
-            return ''.join(selector_parts)  # Return immediately if id is found
-
-        # Add classes if they exist
-        # Validate if the class-based selector is unique
-        element_classes = element.get('class')
-        if element_classes:
+        elif element_classes: # Add classes if they exist
+            # Validate if the class-based selector is unique
             class_selector = '.'.join(element_classes)
             selector_parts.append(f".{class_selector}")
-            matching_elements = soup.select(f"{tag_name}.{class_selector}")
-            
-            # If the selector is not unique, add a :contains() pseudo-class
-            if len(matching_elements) > 1:
-                inner_text = element.get_text(strip=True)
-                if inner_text:
-                    # Escape special characters in the inner text but not spaces
-                    escaped_text = re.escape(inner_text).replace("\\ ", " ")
-                    selector_parts.append(f':contains("{escaped_text}")')
-                else:
-                    # If no inner text, try to use a unique attribute
-                    for attr, value in element.attrs.items():
-                        if attr not in ['class', 'style']:
-                            selector_parts.append(f'[{attr}="{value}"]')
-                            break                
-        
-        # If no classes or id, try to use a unique attribute
-        if not element_id and not element_classes:
+        else: # If no classes or id, try to use a unique attribute
             for attr, value in element.attrs.items():
                 if attr not in ['class', 'style']:
                     selector_parts.append(f'[{attr}="{value}"]')
                     break
+
+ 
 
         return ''.join(selector_parts)
     
@@ -540,9 +537,9 @@ class BrowserSensor(AbstractSensor[BrowserState]):
 
         BrowserSensor.empty_svg(soup)
 
-        BrowserSensor.collapse_single_child_to_parent(soup)
+        # BrowserSensor.collapse_single_child_to_parent(soup)
 
-        BrowserSensor.remove_empty_elements(soup)
+        # BrowserSensor.remove_empty_elements(soup)
 
         BrowserSensor.remove_unnecessary_attributes(soup)
 
