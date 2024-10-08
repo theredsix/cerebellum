@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Tuple, Type
+from typing import Any, Dict, List, Tuple, Type
 from typing import Generic, TypeVar
 
 @dataclass
@@ -29,13 +29,16 @@ class RecordedAction(Generic[StateT, ActionT, ResultT]):
 
 class AbstractPlanner(ABC, Generic[StateT, ActionT, ResultT]):
     @abstractmethod
-    def get_next_action(self, goal: str, current_state: StateT, past_actions: list[RecordedAction[StateT, ActionT, ResultT]]) -> ActionT:
+    def get_next_action(self, goal: str, additional_context: Dict[str, Any] | None, current_state: StateT, past_actions: list[RecordedAction[StateT, ActionT, ResultT]]) -> ActionT:
         pass
 
 class TrainablePlanner(ABC, Generic[TrainingDataT, StateT, ActionT, ResultT]):
     @classmethod
     @abstractmethod 
     def convert_into_training_examples(cls, goal: str, actions: List[RecordedAction[StateT, ActionT, ResultT]]) -> List[TrainingDataT]:
+        pass
+
+    def convert_playwright_trace(self, goal: str, file_path: str) -> List[RecordedAction[StateT, ActionT, ResultT]]:
         pass
 
 class SupervisorPlanner(AbstractPlanner[StateT, ActionT, ResultT]):
@@ -48,8 +51,8 @@ class SupervisorPlanner(AbstractPlanner[StateT, ActionT, ResultT]):
         past_actions: list[RecordedAction[StateT, ActionT, ResultT]]) -> ActionT:
         pass
 
-    def get_next_action(self, goal: str, current_state: StateT, past_actions: list[RecordedAction[StateT, ActionT, ResultT]]) -> ActionT:
-        base_action = self.base_planner.get_next_action(goal, current_state, past_actions)
+    def get_next_action(self, goal: str, additional_context: Dict[str, Any] | None, current_state: StateT, past_actions: list[RecordedAction[StateT, ActionT, ResultT]]) -> ActionT:
+        base_action = self.base_planner.get_next_action(goal, additional_context, current_state, past_actions)
         reviewed_action = self.review_action(base_action, goal, current_state, past_actions)
         return reviewed_action
 
@@ -66,12 +69,15 @@ class AbstractSensor(ABC, Generic[StateT]):
 
 class AbstractSession(ABC, Generic[StateT, ActionT, ResultT]):
 
-    def __init__(self, goal: str, limb: AbstractLimb[ActionT, ResultT], 
+    def __init__(self, goal: str, 
+            additional_context: Dict[str, Any],
+            limb: AbstractLimb[ActionT, ResultT], 
             sensor: AbstractSensor[StateT], 
             planner: AbstractPlanner[StateT, ActionT, ResultT], 
             recorders: 'List[AbstractSessionRecorder[StateT, ActionT, ResultT]]' = [],
             past_actions: list[RecordedAction[StateT, ActionT, ResultT]] = []):
         self.goal = goal
+        self.additional_context = additional_context
         self.limb = limb
         self.planner = planner
         self.sensor = sensor
@@ -87,7 +93,7 @@ class AbstractSession(ABC, Generic[StateT, ActionT, ResultT]):
         current_state = self.sensor.sense()
 
         # Get next action from reasoner
-        next_action = self.planner.get_next_action(self.goal, current_state, self.past_actions)
+        next_action = self.planner.get_next_action(self.goal, self.additional_context, current_state, self.past_actions)
 
         # Perform the action
         action_result = self.limb.perform_action(next_action)

@@ -80,7 +80,7 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                             # Verify that the target_element has been set to the required text
                             self.page.wait_for_timeout(100)
                             actual_text = target_element.input_value()
-                            if actual_text != ', '.join(text):
+                            if actual_text != text and actual_text != ', '.join(text):
                                 print(f"Warning: Element text mismatch. Expected '{text}', but got '{actual_text}'")
                                 outcome = BrowserActionOutcome['NONFILLABLE_TARGET_ELEMENT']
 

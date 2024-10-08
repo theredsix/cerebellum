@@ -8,7 +8,7 @@ import string
 import json
 from playwright.sync_api import Page
 from typing import List, Dict, Any
-from cerebellum.browser.planner import tools
+from browser.planner.llm import AbstractLLMBrowserPlanner
 from core import AbstractPlanner, RecordedAction
 from cerebellum.browser.types import BrowserAction, BrowserActionOutcome, BrowserActionResult, BrowserState
 
@@ -23,7 +23,7 @@ class ExtendedLlama3ChatTemplate(Llama3ChatTemplate):
             return super().get_role_start(role_name)
 
 
-class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, BrowserActionResult]):
+class LocalLLMBrowserPlanner(AbstractLLMBrowserPlanner):
 
     def __init__(self, vision_capabale: bool = False):
         self.temperature = 0
@@ -32,7 +32,7 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
                       echo=False,                      
                       chat_template=ExtendedLlama3ChatTemplate, n_ctx=12072, n_gpu_layers=35, verbose=True)
 
-    def generate_content(self, state: BrowserState, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], temperature=0) -> Dict[str, Any]:
+    def generate_content(self, state: BrowserState, messages: List[Dict[str, Any]], temperature=0) -> Dict[str, Any]:
         prompt = self.llm
         for message in messages:
             if message["role"] == "system":
@@ -211,7 +211,7 @@ class LocalLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Browse
     
     def get_system_prompt(self, goal: str):
         wrapped_tools = []
-        for tool in tools:
+        for tool in LocalLLMBrowserPlanner.tools:
             tool_deep_copy = json.loads(json.dumps(tool))
             del tool_deep_copy["parameters"]["properties"]["reasoning"]
             if "required" in tool_deep_copy["parameters"]:
@@ -286,7 +286,7 @@ Goal:
             else:
                 self.temperature = min(1.0, self.temperature + 0.3)
 
-        response = self.generate_content(state, history, tools, self.temperature)
+        response = self.generate_content(state, history, self.temperature)
 
         print(response)
 

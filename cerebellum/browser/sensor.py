@@ -123,34 +123,65 @@ class BrowserSensor(AbstractSensor[BrowserState]):
             href = element.get('href')
             selector_parts.append(f'[href="{href}"]')
 
-        # Add aria-label if it exists
-        if element.get('aria-label'):
-            aria_label = element.get('aria-label')
-            selector_parts.append(f'[aria-label="{aria_label}"]')
-        elif element.get_text(strip=True):
-            inner_text = element.get_text(strip=True)
-            # Escape special characters in the inner text but not spaces
-            escaped_text = re.escape(inner_text).replace("\\ ", " ")
-            selector_parts.append(f':has-text("{escaped_text}")')
+        # Add more attributes if selector isn't unique
+        if cls.count_matching(soup, ''.join(selector_parts)) > 1:
+            # Add aria-label if it exists
+            if element.get('aria-label'):
+                aria_label = element.get('aria-label')
+                selector_parts.append(f'[aria-label="{aria_label}"]')
+            elif element.get_text(strip=True):
+                inner_text = element.get_text(strip=True)
+                # Escape special characters in the inner text but not spaces
+                escaped_text = re.escape(inner_text).replace("\\ ", " ")
+                selector_parts.append(f':has-text("{escaped_text}")')
 
-        # Add id if it exists (highest priority)
-        element_id = element.get('id')
-        element_classes = element.get('class')
-        if element_id:
-            selector_parts.append(f"#{element_id}")
-        elif element_classes: # Add classes if they exist
-            # Validate if the class-based selector is unique
-            class_selector = '.'.join(element_classes)
-            selector_parts.append(f".{class_selector}")
-        else: # If no classes or id, try to use a unique attribute
-            for attr, value in element.attrs.items():
-                if attr not in ['class', 'style']:
-                    selector_parts.append(f'[{attr}="{value}"]')
-                    break
-
- 
-
+        # Add more attributes if selector isn't unique
+        if cls.count_matching(soup, ''.join(selector_parts)) > 1:
+            # Add id if it exists (highest priority)
+            element_id = element.get('id')
+            element_classes = element.get('class')
+            if element_id:
+                selector_parts.append(f"#{element_id}")
+            elif element_classes: # Add classes if they exist
+                # Validate if the class-based selector is unique
+                class_selector = '.'.join(element_classes)
+                selector_parts.append(f".{class_selector}")
+            else: # If no classes or id, try to use a unique attribute
+                for attr, value in element.attrs.items():
+                    if attr not in ['class', 'style', 'href']:
+                        selector_parts.append(f'[{attr}="{value}"]')
+                        break
+                    
         return ''.join(selector_parts)
+    
+    @classmethod
+    def count_matching(cls, soup: BeautifulSoup, css_selector: str) -> int:
+        """
+        Count the number of elements that match a given CSS selector.
+        If the :has-text selector is present, perform a case-insensitive inner-text match.
+        """
+        # Check if the selector includes :has-text
+        if ':has-text(' in css_selector:
+            # Extract the text to match
+            start = css_selector.find(':has-text(') + len(':has-text(')
+            end = css_selector.find(')', start)
+            text_to_match = css_selector[start:end].strip('"').strip("'")
+            
+            # Remove the :has-text part from the selector for element matching
+            base_selector = css_selector[:css_selector.find(':has-text(')]
+            
+            # Find all elements matching the base selector
+            elements = soup.select(base_selector)
+            
+            # Filter elements by case-insensitive text match
+            matching_elements = [
+                element for element in elements
+                if text_to_match.lower() in element.get_text(strip=True).lower()
+            ]
+            return len(matching_elements)
+        else:
+            # If no :has-text, simply count elements matching the selector
+            return len(soup.select(css_selector))
     
     @classmethod
     def minify_html(cls, html_string):
@@ -533,7 +564,7 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         # Parse the content with BeautifulSoup
         soup = BeautifulSoup(page_html, 'html.parser')
 
-        # BrowserSensor.remove_nonvisible_elements(soup)
+        BrowserSensor.remove_nonvisible_elements(soup)
 
         BrowserSensor.empty_svg(soup)
 

@@ -1,4 +1,4 @@
-from cerebellum.browser.local import LocalLLMBrowserPlanner
+from browser.planner.local import LocalLLMBrowserPlanner
 from cerebellum import HumanBrowserPlanner, OpenAIBrowserPlanner, BrowserSession, FileSessionMemory
 from playwright.sync_api import sync_playwright
 import os

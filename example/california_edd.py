@@ -17,18 +17,27 @@ with sync_playwright() as p:
     control_page = context.new_page()
     # debug_page = context.new_page()
     # page.goto("https://www.dmv.ca.gov/")
-    page.goto("https://www.dmv.ca.gov/")
+    page.goto("https://eddservices.edd.ca.gov/acctservices/AccountManagement/AccountServlet?Command=NEW_SIGN_UP")
 
-    recorders = [FileSessionMemory('dmv.cere.zip')]
+    recorders = [FileSessionMemory('edd.cere.zip')]
     # base_planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'], model_name='gemini-1.5-pro-exp-0827')
     base_planner = OpenAIBrowserPlanner(api_key=os.environ['OPENAI_API_KEY'], model_name="gpt-4o-mini")
     # base_planner = LocalLLMBrowserPlanner()
 
     planner = HumanBrowserPlanner(base_planner, control_page)
 
-    goal = "Complete a planned non operation vehicle registration renewal for License Plate 7WDR747 with VIN 08969"
+    goal = "Navigate through the employer services online enrollment form. Terminate when the form is completed"
+    additional_context = {
+        "username": "isthisreal1",
+        "password": "Password123!",
+        "first_name": "John",
+        "last_name": "Doe",
+        "pin": "1234",
+        "email": "isthisreal1@gmail.com",
+        "phone_number": "412-444-1234",
+    }
 
-    session = BrowserSession(goal, page, planner=planner, recorders=recorders)
+    session = BrowserSession(goal, additional_context, page, planner=planner, recorders=recorders)
 
     wait_for_input()
 

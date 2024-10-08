@@ -127,7 +127,7 @@ Please refer to our CONTRIBUTING.md file for more detailed information on our co
 
 
 ## License
-(Add license information here)
+Apache 2.0
 
 ## Contact
 (Add contact information here)
