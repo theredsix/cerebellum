@@ -116,7 +116,7 @@ class AbstractLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Bro
                     "properties": {
                         "wait_in_seconds": {
                             "type": "number",
-                            "description": "The number of seconds to wait, use 5 as a default",
+                            "description": "The number of seconds to wait, use 5 as a default if you are unsure",
                         },
                     },
                     "required": ["wait_in_seconds"],
@@ -283,5 +283,8 @@ Key considerations:
         
         if "href" in response:
             args["href"] = response["href"]
+
+        if "wait_in_seconds" in response:
+            args["wait_in_seconds"] = response["wait_in_seconds"]
 
         return (action_name, args)

@@ -138,7 +138,10 @@ class BrowserLimb(AbstractLimb[BrowserAction, BrowserActionResult]):
                         print(f"Navigating to URL: {params['href']}")
                         self.page.evaluate(f"window.location.href = '{params['href']}'")
                         outcome = BrowserActionOutcome['SUCCESS']
-                        after_action_delay = 1000  # Longer delay for page load                    
+                        after_action_delay = 1000  # Longer delay for page load
+                    case "wait":
+                        outcome = BrowserActionOutcome['SUCCESS']
+                        after_action_delay = params["wait_in_seconds"] * 1000
                     case "achieved":
                         print("Goal achieved!")
                         outcome = BrowserActionOutcome['GOAL_ACHIEVED']

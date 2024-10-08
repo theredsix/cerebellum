@@ -305,6 +305,9 @@ Goal:
         if 'press_enter' in tool_def['parameters']['properties']:
             args['press_enter'] = True
 
+        if 'wait_in_seconds' in tool_def['parameters']['properties']:
+            args['wait_in_seconds'] = 5
+
         # Create the BrowserAction object
         browser_action = BrowserAction(
             function=action_name,
