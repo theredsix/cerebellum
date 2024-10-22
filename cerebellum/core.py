@@ -67,6 +67,11 @@ class AbstractSensor(ABC, Generic[StateT]):
     def sense(self) -> StateT:
         pass
 
+    @abstractmethod
+    def ensure_state_validity(self, last_sense: StateT, change_threshold: float) -> bool:
+        pass
+
+
 class AbstractSession(ABC, Generic[StateT, ActionT, ResultT]):
 
     def __init__(self, goal: str, 
@@ -89,11 +94,20 @@ class AbstractSession(ABC, Generic[StateT, ActionT, ResultT]):
         if self.planner is None:
             raise ValueError("Cannot step without a Planner. Please provide a valid planner.")
 
-        # Gather current state
-        current_state = self.sensor.sense()
+        change_threshold = 10.0
+        while(True):
+            # Gather current state
+            current_state = self.sensor.sense()
 
-        # Get next action from reasoner
-        next_action = self.planner.get_next_action(self.goal, self.additional_context, current_state, self.past_actions)
+            # Get next action from reasoner
+            next_action = self.planner.get_next_action(self.goal, self.additional_context, current_state, self.past_actions)
+
+            # Ensure planned action is for a state that still exists
+            if self.sensor.ensure_state_validity(current_state, change_threshold):
+                break;
+
+            # Increase threshold so we always break out of loop eventually
+            change_threshold = change_threshold * 4
 
         # Perform the action
         action_result = self.limb.perform_action(next_action)

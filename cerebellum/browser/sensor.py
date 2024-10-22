@@ -7,6 +7,7 @@ from core import AbstractSensor
 from cerebellum.browser.types import BrowserState
 from playwright.sync_api import Page, TimeoutError
 import logging
+import cv2
 
 cssutils.log.setLevel(logging.FATAL)
 
@@ -526,6 +527,37 @@ class BrowserSensor(AbstractSensor[BrowserState]):
         """)
 
         return visible_html
+    
+    def ensure_state_validity(self, last_state: BrowserState, change_threshold: float) -> bool:
+        return BrowserSensor.did_screen_change(self.page, last_state.screenshot_full, change_threshold)
+
+    @classmethod
+    def did_screen_change(cls, page: Page, old_screenshot: str, threshold: float = 10) -> bool:
+        print("old", old_screenshot)
+        # Decode the base64 screenshots
+        old_image_data = base64.b64decode(old_screenshot.encode('utf-8'))
+        new_image_data = BrowserSensor.get_screenshot(page, True)
+
+        # Decode the byte data to images using OpenCV
+        old_image = cv2.imdecode(bytearray(old_image_data), cv2.IMREAD_COLOR)
+        new_image = cv2.imdecode(bytearray(new_image_data), cv2.IMREAD_COLOR)
+
+        # Ensure both images have the same size
+        if old_image.shape != new_image.shape:
+            raise ValueError("Screenshots do not have the same dimensions")
+
+        # Calculate the absolute difference between the images
+        diff_image = cv2.absdiff(old_image, new_image)
+
+        # Count the number of different pixels
+        diff_pixels = cv2.countNonZero(cv2.cvtColor(diff_image, cv2.COLOR_BGR2GRAY))
+
+        # Calculate the percentage of changed pixels
+        total_pixels = old_image.shape[0] * old_image.shape[1]
+        change_percentage = (diff_pixels / total_pixels) * 100
+
+        # Return True if more than 10% of the pixels have changed
+        return change_percentage > threshold
 
     @classmethod
     def get_screenshot(cls, page: Page, full_page: bool = False) -> str:

@@ -13,16 +13,12 @@ class AbstractLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Bro
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "css_selector": {
-                            "type": "string",
-                            "description": '''A CSS selector targeting the element to click, the target element MUST match a css selector from 'Clickable Elements'. use the following priority order for CSS selectors:
-  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
-  2. Unique class-based selectors
-  3. Attribute selectors
-  4. Combination of tag and class/attribute''',
+                        "css_selector_index": {
+                            "type": "number",
+                            "description": 'The numeric index of the css_selector from "Clickable Elements". A click action will be performed on the element targeted by the css selector.',
                         }
                     },
-                    "required": ["css_selector"],
+                    "required": ["css_selector_index"],
                 },
             },
             {
@@ -31,16 +27,12 @@ class AbstractLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Bro
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "css_selector": {
-                            "type": "string",
-                            "description": '''A CSS selector targeting the element to click, the target element MUST match a css selector from 'Checkable Elements'. use the following priority order for CSS selectors:
-  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
-  2. Unique class-based selectors
-  3. Attribute selectors
-  4. Combination of tag and class/attribute''',
+                        "css_selector_index": {
+                            "type": "number",
+                            "description": 'The numeric index of the css_selector from "Checkable Elements". A check toggle action will be performed on the element targeted by the css selector.',
                         }
                     },
-                    "required": ["css_selector"],
+                    "required": ["css_selector_index"],
                 },
             },
             {
@@ -49,13 +41,9 @@ class AbstractLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Bro
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "css_selector": {
-                            "type": "string",
-                            "description": '''A CSS selector targeting the element to fill, the target element MUST match a css selector from 'Fillable Elements'. use the following priority order for CSS selectors:
-  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
-  2. Unique class-based selectors
-  3. Attribute selectors
-  4. Combination of tag and class/attribute''',
+                        "css_selector_index": {
+                            "type": "number",
+                            "description": 'The numeric index of the css_selector from "Fillable Elements". A fill action will be performed on the element targeted by the css selector.',
                         },
                         "text": {
                             "type": "string",
@@ -66,7 +54,7 @@ class AbstractLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Bro
                             "description": "If true, the enter key will be pressed after the input is filled. This is helpful for form or search submissions",
                         },
                     },
-                    "required": ["css_selector", "text", "press_enter"],
+                    "required": ["css_selector_index", "text", "press_enter"],
                 },
             },
             {
@@ -75,13 +63,9 @@ class AbstractLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Bro
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "css_selector": {
-                            "type": "string",
-                            "description": '''A CSS selector targeting the select element, the target element MUST match a css selector from 'Selectable Elements'. use the following priority order for CSS selectors:
-  1. ID-based selectors (e.g., 'tag#id') - ALWAYS prefer these if available
-  2. Unique class-based selectors
-  3. Attribute selectors
-  4. Combination of tag and class/attribute''',
+                        "css_selector_index": {
+                            "type": "number",
+                            "description": 'The numeric index of the css_selector from "Selectable Elements". A select action will be performed on the element targeted by the css selector.',
                         },
                         "values": {
                             "type": "array",
@@ -91,7 +75,7 @@ class AbstractLLMBrowserPlanner(AbstractPlanner[BrowserState, BrowserAction, Bro
                             }
                         },
                     },
-                    "required": ["css_selector", "values"],
+                    "required": ["css_selector_index", "values"],
                 },
             },
             {
@@ -193,10 +177,10 @@ Key considerations:
     
     @classmethod
     def stringify_selector_and_inputs(cls, state: BrowserState):
-        clickable_selectors = '\n'.join(state.clickable_selectors)
-        fillable_selectors = '\n'.join(state.fillable_selectors)
-        checkable_selectors = '\n'.join(state.checkable_selectors)
-        selectable_selectors = '\n'.join([f"{selector}: {', '.join(options)}" for selector, options in state.selectable_selectors.items()])
+        clickable_selectors = '\n'.join([f"{index}: {selector}" for index, selector in enumerate(state.clickable_selectors)])
+        fillable_selectors = '\n'.join([f"{index}: {selector}" for index, selector in enumerate(state.fillable_selectors)])
+        checkable_selectors = '\n'.join([f"{index}: {selector}" for index, selector in enumerate(state.checkable_selectors)])
+        selectable_selectors = '\n'.join([f"{index}: {selector}\t{', '.join(options)}" for index, (selector, options) in enumerate(state.selectable_selectors.items())])
 
         text_state = {}
         text_state["url"] = f"Current URL:\n{state.url}\n"
@@ -208,6 +192,11 @@ Key considerations:
         
         input_state_text = '\n'.join([f"{selector}: {value}" for selector, value in state.input_state.items()])
         text_state["input"] = f"\nInput Element States: ###\n{input_state_text}\n###\n"
+
+        print(text_state["clickable"])
+        print(text_state["fillable"])
+        print(text_state["checkable"])
+        print(text_state["selectable"])
 
         return text_state
 
@@ -232,28 +221,28 @@ Key considerations:
                 **openapi_tool["properties"]
             }
 
-            css_enum = None
-            if tool["name"] == "click":
-                if not state.clickable_selectors:
-                    continue
-                css_enum = state.clickable_selectors
-            elif tool["name"] == "check":
-                if not state.checkable_selectors:
-                    continue
-                css_enum = state.checkable_selectors
-            elif tool["name"] == "select":
-                if not state.selectable_selectors:
-                    continue
-                css_enum = list(state.selectable_selectors.keys())                
-            elif tool["name"] == "fill":
-                if not state.fillable_selectors:
-                    continue
-                css_enum = state.fillable_selectors
+            # css_enum = None
+            # if tool["name"] == "click":
+            #     if not state.clickable_selectors:
+            #         continue
+            #     css_enum = state.clickable_selectors
+            # elif tool["name"] == "check":
+            #     if not state.checkable_selectors:
+            #         continue
+            #     css_enum = state.checkable_selectors
+            # elif tool["name"] == "select":
+            #     if not state.selectable_selectors:
+            #         continue
+            #     css_enum = list(state.selectable_selectors.keys())                
+            # elif tool["name"] == "fill":
+            #     if not state.fillable_selectors:
+            #         continue
+            #     css_enum = state.fillable_selectors
 
-            if css_enum:
-                css_enum = [x.replace("\\", "\\\\\\\\") for x in css_enum]
-                css_enum = [x.replace('"', "\\'") for x in css_enum]
-                openapi_tool["properties"]["css_selector"]["enum"] = css_enum
+            # if css_enum:
+            #     css_enum = [x.replace("\\", "\\\\\\\\") for x in css_enum]
+            #     css_enum = [x.replace('"', "\\'") for x in css_enum]
+            #     openapi_tool["properties"]["css_selector_index"]["enum"] = css_enum
             
             openapi_tool["required"].insert(0, "name")
             openapi_tool["required"].insert(0, tool["name"])
@@ -265,15 +254,27 @@ Key considerations:
         return openapi_tools
     
     @classmethod
-    def parse_function_call(cls, response: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+    def parse_function_call(cls, response: Dict[str, Any], state: BrowserState,) -> Tuple[str, Dict[str, Any]]:
         action_name = response["name"]
         args = {}
 
         if "text" in response:
             args["text"] = response["text"]
         
-        if "css_selector" in response:
-            args["css_selector"] = response["css_selector"]
+        if "css_selector_index" in response:
+            css_selector_list = []
+            if action_name == "click":
+                css_selector_list = state.clickable_selectors
+            if action_name == "check":
+                css_selector_list = state.checkable_selectors
+            elif action_name == "select":
+                css_selector_list = [x for x in state.selectable_selectors.keys()]
+            elif action_name == "fill":
+                css_selector_list = state.fillable_selectors
+
+            if css_selector_list:
+                css_selector_index = response["css_selector_index"]
+                args["css_selector"] = css_selector_list[css_selector_index]
         
         if "press_enter" in response:
             args["press_enter"] = response["press_enter"]

@@ -3,9 +3,8 @@
 ## Quickstart
 
 ```python
-from cerebellum.browser.planner import GeminiBrowserPlanner, HumanBrowserPlanner
+from cerebellum.browser.planner import GeminiBrowserPlanner
 from cerebellum.browser.session import BrowserSession
-from cerebellum.memory.file import FileSessionMemory
 from playwright.sync_api import sync_playwright
 import os
 
@@ -16,118 +15,78 @@ with sync_playwright() as p:
     page = context.new_page()
     page.goto("https://www.amazon.com/")
 
-    planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
-
     goal = "Add a USB C to USB C cable to cart"
 
+    planner = GeminiBrowserPlanner(api_key=os.environ['GEMINI_API_KEY'])
     session = BrowserSession(goal, page, planner=planner)
 
     session.start()
-
 ```
 
-
 ## Overview
-Cerebellum is a browser automation system that uses AI-driven planning to navigate web pages and perform goals. This project combines the power of large language models with browser automation tools to create a flexible and intelligent system for completing goals on websites.
 
-## Why Cerebellum
-
-Cerebellum is named after the part of the brain responsible for coordinating movement and fine motor skills. This analogy is fitting for our project, as Cerebellum aims to provide AI with the ability to navigate and interact with web interfaces as smoothly and intuitively as humans do.
-
-Key reasons for using Cerebellum:
-
-1. **Autonomous Web Interaction**: Cerebellum acts as an AI "cerebellum," enabling AI systems to plan and execute web-based tasks independently, much like how the human cerebellum coordinates physical movements.
-
-2. **Task Granularity**: Designed to handle small to medium-sized tasks, Cerebellum is ideal for operations such as navigating to a user's account profile or adding items to a shopping cart. This allows a frontier model to offload browser actions to Cerebellum.
-
-3. **Bridging AI and Web Interfaces**: Just as the cerebellum connects the brain to limbs, Cerebellum.ai serves as a bridge between AI decision-making capabilities and web browser interactions, treating the browser as a digital limb for AI systems.
-
-4. **Flexible and Intelligent**: By combining AI-driven planning with browser automation, Cerebellum offers a more adaptable and intelligent approach to web interaction compared to traditional, rule-based automation tools.
-
-5. **Support for Complex Workflows**: Cerebellum's ability to understand context and plan actions makes it suitable for navigating complex web applications and multi-step processes, mimicking human-like interaction with web interfaces.
-
-6. **Native Playwright integration** Cerebellum uses Playwright to control the webpages and allows smooth switching to human or rule-based automation control.
-
-7. **Transcribing of human knowledge** Cerebellum comes with tools for supervising and crafting "golden" browsing sessions for easy fine tuning of the underlying LLM planner.
+Cerebellum is an AI-driven browser automation system that uses large language models and planning to navigate web pages and achieve specific goals, providing a flexible, intelligent alternative to traditional rule-based automation.
 
 ## Features
-- AI-driven planning for web navigation
-- Support for various browser actions (click, fill, focus, goto)
-- Vision-capable mode for image-based decision making
-- Local LLM integration for privacy
-- Extensible architecture for adding new capabilities
+
+- **AI-driven planning for navigating web pages**
+- **Playwright-based browser control**
+- **Vision-capable mode for image-based actions**
+- **Local LLM integration for privacy**
+- **Extensible for adding custom capabilities**
+
+## Why Cerebellum?
+
+Cerebellum aims to make web interactions for AI as intuitive as human actions, serving as a bridge between AI decision-making and browser interactions.
+
+Key benefits:
+
+1. **Chainable**: Cerebellum allows multiple small or medium-sized goals to be chained together in series to achieve a final task. This chainability enables a human or a frontier model to plan an execution route, breaking down complex workflows into manageable steps. For example, Cerebellum can first log in to an e-commerce site, then search for a specific product, add it to the cart, and finally proceed to checkout. Each of these steps can be defined as separate goals, chained in sequence, allowing for a flexible and coordinated execution of complex tasks.
+2. **Interoperability:** Cerebellum allows seamless integration between AI-driven automation, human intervention, and traditional rule-based automation. The Playwright page object can be handed off between different control mechanisms, enabling a smooth transition from AI-driven actions to manual human input or conventional scripted automation. This flexibility allows for robust handling of complex tasks where certain parts may benefit from direct human oversight or specific rule-based scripts, enhancing reliability and adaptability in web automation workflows.
+3. **Human Knowledge Transcription**: Tools for supervising and creating "golden" sessions to improve AI performance. These tools include features for recording browser sessions and converting them into fine-tuning examples, making it easier to enhance the LLM's capabilities with real-world browsing data.
 
 ## Installation
 
-To install Cerebellum from local source, cd to git root directory.
+Install from local source by navigating to the root directory and running:
 
-`conda develop ./cerebellum` or `pip install -e ./cerebellum`
+```sh
+conda develop ./cerebellum
+# or
+pip install -e ./cerebellum
+```
 
-Online pip and conda instructions will be added once package is published.
+For local LLM planners, also install [guidance](https://github.com/guidance-ai/guidance) and [llama-cpp-python](https://github.com/abetlen/llama-cpp-python).
 
-#### Local LLM Planner configuration
+## How it works
 
-If you want to use Cerebellum with a local model, please also install [guidance](https://github.com/guidance-ai/guidance) and [llama-cpp-python](https://github.com/abetlen/llama-cpp-python).
+Cerebellum models web interactions as pathfinding on a directed graph. The state of a webpage is represented as nodes on an infinite graph, with each node capturing the current webpage state, including client-side and server-side information. Actions like clicking a button, filling out a form, or navigating to a new page are edges that transition the state from one node to another.
 
-## Theory
+The process starts with a node representing the initial webpage state, aiming to find an optimal path to a terminal node that signifies goal completion. Each action transitions the webpage state along the graph's edges.
 
-Cerebellum models webpage interactions as path-finding on a directed graph. This approach provides a structured way to navigate complex web environments and achieve specific goals. Here's a breakdown of the key theoretical components:
+Neighboring nodes are discovered at runtime by analyzing the DOM structure to find interactable elements, like buttons, links, and input fields. These elements are mapped as possible actions that transition the state to new nodes, allowing the system to determine the next steps toward the goal.
 
-1. **Graph Representation**:
-   - Nodes: Represent the webpage's state, including both client-side and server-side information.
-   - Edges: Represent actions that can be taken, such as clicking, filling forms, or navigating to new pages.
+The Large Language Model (LLM) planner acts as a heuristic, analyzing the current state, evaluating actions, and selecting the most promising next step. As Cerebellum interacts with the webpage, it updates its understanding of the graph structure, adapting to changes or new information.
 
-2. **Path-Finding**:
-   - Starting Node: The initial webpage state when the task begins.
-   - Terminal Nodes: A set of states that represent successful completion of the goal.
-   - Objective: Find an optimal path from the starting node to one of the terminal nodes.
-
-3. **LLM Planner as Heuristic**:
-   - The Large Language Model (LLM) planner acts as a sophisticated heuristic for navigating the graph.
-   - It analyzes the current state, potential actions, and the goal to suggest the most promising next steps.
-
-4. **Adaptive Navigation**:
-   - As Cerebellum interacts with the webpage, it updates its understanding of the graph structure.
-   - The system can adapt to unexpected changes or new information discovered during navigation.
-
-5. **Fine-Tuning for Optimization**:
-   - The underlying LLM can be fine-tuned using successful navigation sessions.
-   - This process hones the navigation heuristic, improving efficiency and success rates over time.
-
-By modeling web interactions in this way, Cerebellum can tackle complex, multi-step tasks while maintaining flexibility and adaptability. The integration of AI-driven planning with this graph-based approach allows for intelligent decision-making in dynamic web environments.
-
-
+This adaptive navigation allows Cerebellum to respond dynamically to changes in the webpage, making real-time decisions. Successful navigation sessions are used to fine-tune the LLM, improving its ability to handle similar tasks. By modeling web interactions in this way, Cerebellum offers a flexible approach to automating complex tasks in dynamic environments.
 
 ## Components
-- `LocalLLMBrowserPlanner`: Main planner class that generates browser actions
-- `ExtendedLlama3ChatTemplate`: Custom chat template for LLM interactions
-- `BrowserState`, `BrowserAction`, `BrowserActionResult`: Core data structures
+
+- `LocalLLMBrowserPlanner`: Generates browser actions.
+- `ExtendedLlama3ChatTemplate`: Custom LLM interaction template.
+- `BrowserState`, `BrowserAction`, `BrowserActionResult`: Core data structures.
 
 ## Contributing
-We welcome contributions to Cerebellum! Here are some ways you can help:
 
-1. **Code Contributions**: If you'd like to contribute code, please fork the repository, create a feature branch, and submit a pull request with your changes.
+We welcome contributions! You can help by:
 
-2. **Bug Reports**: If you encounter any issues, please open a detailed bug report in the GitHub issues section.
+1. **Code Contributions**: Fork the repo, create a branch, and submit a pull request.
+2. **Bug Reports**: Report issues on GitHub.
+3. **Feature Requests**: Share your ideas for improvements.
+4. **Documentation**: Help refine the docs.
+5. **Golden Session Files**: Submit `.cere` files for goals where Cerebellum struggles. This will help improve the AI's performance and contribute to fine-tuning efforts.
 
-3. **Feature Requests**: Have ideas for new features? We'd love to hear them! Open an issue to discuss your proposal.
-
-4. **Documentation**: Help improve our documentation by submitting updates or clarifications.
-
-5. **Golden Session Files**: Cerebellum performs well out of the box for many goals. However, we welcome ".cere" golden session files for goals where Cerebellum is currently unable to achieve the desired outcome. These files will be consolidated in this repository for the community to use in fine-tuning, and will be incorporated into the next official Cerebellum fine-tune. Through the power of open-source collaboration, we aim to curate a fine-tuning dataset that will enable Cerebellum to perform and generalize across all webpages.
-
-To contribute a golden session file:
-- Ensure the file is in the correct ".cere" format
-- Include a brief description of the goal and the webpage(s) involved
-- Submit the file via a pull request to the designated directory in the repository
-
-By contributing golden session files, you're helping to improve Cerebellum's capabilities and benefiting the entire user community. We appreciate your efforts in making Cerebellum more robust and versatile!
-
-Please refer to our CONTRIBUTING.md file for more detailed information on our contribution process and guidelines.
-
+Refer to our CONTRIBUTING.md for more detailed guidelines.
 
 ## License
-Apache 2.0
 
-## Contact
-(Add contact information here)
+Apache 2.0

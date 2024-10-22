@@ -45,7 +45,10 @@ class OpenAIBrowserPlanner(AbstractLLMBrowserPlanner, TrainablePlanner[List[Any]
             print(f"Error: Received status code {response.status_code}")
             print("Response body:", response.text)
 
-        return response.json()
+        json_response = response.json()
+        print(f"Tokens used: {json_response['usage']['total_tokens']}")
+
+        return json_response
 
     @classmethod
     def format_actions_into_chats(cls, session_history: list[RecordedAction[BrowserState, BrowserAction, BrowserActionResult]], vision_capabale: bool, format_for_fine_tuning: bool = False):
@@ -249,7 +252,7 @@ Goal:
 
         print(json.dumps(json_response, indent=2))
 
-        (action_name, args) = AbstractLLMBrowserPlanner.parse_function_call(json_response["next_action"])
+        (action_name, args) = AbstractLLMBrowserPlanner.parse_function_call(json_response["next_action"], current_page)
         
         browser_action = BrowserAction(
             function=action_name,
