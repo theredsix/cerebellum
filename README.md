@@ -29,12 +29,12 @@ Cerebellum is an AI-driven browser automation system that uses large language mo
 
 ## Features
 
-- **AI-driven planning for navigating web pages**
-- **Playwright-based browser control**
-- **Vision-capable mode for image-based actions**
-- **Local LLM integration for privacy**
-- **Extensible for adding custom capabilities**
-- **Apache 2.0 License**
+- AI-driven planning for navigating web pages
+- Playwright-based browser control
+- Vision-capable mode for image-based actions
+- Local LLM integration for privacy
+- Extensible for adding custom capabilities
+- Apache 2.0 License
 
 ## Why Cerebellum?
 
