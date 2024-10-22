@@ -5,6 +5,10 @@ browser_action_*.json
 browser_action_*.html
 
 /*.cere
+*.zip
+*.jsonl
+trace/
+calendly/
 
 session
 

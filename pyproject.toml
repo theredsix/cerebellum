@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cerebellum"
+description = "Cerebellum is an AI-driven browser automation system that uses large language models and planning to navigate web pages and achieve specific goals, providing a flexible, intelligent alternative to traditional rule-based automation."
+authors = [
+  {name = "Han Wang", email = "han.wang.2718@gmail.com"}
+]
+maintainers = [
+  {name = "Han Wang", email = "han.wang.2718@gmail.com"}
+]
+version = "0.1"
+description = "Cerebellum is an AI-driven browser automation system."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License"
+]
+dependencies = [
+  "playwright",
+  "cssutils",
+  "beautifulsoup4"
+]
+keywords = ["llm", "ai", "agent", "browser", "automation"]
+Homepage = "https://github.com/theredsix/cerebellum"
+Issues = "https://github.com/theredsix/cerebellum/issues"
+Repository = "https://github.com/theredsix/cerebellum.git"
