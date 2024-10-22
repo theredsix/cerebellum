@@ -4,7 +4,6 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cerebellum"
-description = "Cerebellum is an AI-driven browser automation system that uses large language models and planning to navigate web pages and achieve specific goals, providing a flexible, intelligent alternative to traditional rule-based automation."
 authors = [
   {name = "Han Wang", email = "han.wang.2718@gmail.com"}
 ]
