@@ -1,31 +1,27 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
+[tool.poetry]
 name = "cerebellum"
-authors = [
-  {name = "Han Wang", email = "han.wang.2718@gmail.com"}
-]
-maintainers = [
-  {name = "Han Wang", email = "han.wang.2718@gmail.com"}
-]
 version = "0.1"
 description = "Cerebellum is an AI-driven browser automation system."
-readme = "README.md"
+authors = ["Han Wang <han.wang.2718@gmail.com>"]
+maintainers = ["Han Wang <han.wang.2718@gmail.com>"]
 license = "Apache-2.0"
-requires-python = ">=3.8"
+readme = "README.md"
+homepage = "https://github.com/theredsix/cerebellum"
+repository = "https://github.com/theredsix/cerebellum.git"
+documentation = "https://github.com/theredsix/cerebellum"
+keywords = ["llm", "ai", "agent", "browser", "automation"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License"
 ]
-dependencies = [
-  "playwright",
-  "cssutils",
-  "beautifulsoup4"
-]
-keywords = ["llm", "ai", "agent", "browser", "automation"]
-Homepage = "https://github.com/theredsix/cerebellum"
-Issues = "https://github.com/theredsix/cerebellum/issues"
-Repository = "https://github.com/theredsix/cerebellum.git"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+playwright = "*"
+cssutils = "*"
+beautifulsoup4 = "*"
