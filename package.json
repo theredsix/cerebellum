@@ -1,0 +1,20 @@
+{
+  "name": "cerebellum",
+  "version": "0.0.1",
+  "description": "LLM based browser automation",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Han Wang",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/selenium-webdriver": "^4.1.26",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "selenium-webdriver": "^4.25.0"
+  }
+}
