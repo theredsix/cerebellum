@@ -7,8 +7,9 @@
       "preserveConstEnums": true,
       "sourceMap": true,
       "outDir": "dist",
-      "moduleResolution": "Node"
+      "moduleResolution": "Node",
+      "allowSyntheticDefaultImports": true
     },
-    "include": ["src/**/*"],
+    "include": ["src/**/*", "example/**/*"],
     "exclude": ["**/*.spec.ts"]
   }
