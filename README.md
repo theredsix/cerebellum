@@ -2,7 +2,7 @@
 
 Cerebellum AI is a lightweight browser automation tool powered by large language models (LLMs) that accomplishes user-defined goals on webpages using keyboard and mouse actions.
 
-[![Google Example Video](/etc/image/bitcoin.png)](/etc/screencast/bitcoin.mp4)
+[![Google Example Video](https://github.com/theredsix/cerebellum/raw/refs/heads/main/etc/image/bitcoin.png)](https://github.com/theredsix/cerebellum/raw/refs/heads/main/etc/screencast/bitcoin.mp4)
 
 ## Quick Start
 
