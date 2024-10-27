@@ -11,32 +11,23 @@ Install dependencies:
 npm i cerebellum-ai
 ```
 
-Set up your environment:
-   - Ensure you have [Selenium Webdrivers](https://www.npmjs.com/package/selenium-webdriver) installed for the browser you want to automate 
-   - Set up your Anthropic API key as an environment variable:
-     ```
-     export ANTHROPIC_API_KEY=your_api_key_here
-     ```
+Ensure you have [Selenium Webdrivers](https://www.npmjs.com/package/selenium-webdriver) installed for the browser you want to automate 
 
 Run the example:
 ```typescript
 import { Builder, Browser } from 'selenium-webdriver';
-import { ServiceBuilder } from 'selenium-webdriver/firefox';
 
 import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 
-const planner = new AnthropicPlanner(process.);
 
 (async function example() {
-  // Setup Selenium  
-  let driver = await new Builder().forBrowser(Browser.FIREFOX).build(); // Choose your browser
+  let driver = await new Builder().forBrowser(Browser.FIREFOX);
   try {
-    // Navigate to your inital page
     await driver.get('https://www.google.com');
-
-    // Declare the goal you want to accomplish in this browser session
-    const goal = 'Show me the wikipedia page of the creator of Bitcoin'
-
+    
+    // Define your goal
+    const goal = 'Show me the wikipedia page of the creator of Bitcoin';
+    
     // Create the Cerebellum browser agent
     const planner = new AnthropicPlanner(process.env.ANTHROPIC_API_KEY as string);
     const agent = new BrowserAgent(driver, planner, goal);
@@ -44,7 +35,7 @@ const planner = new AnthropicPlanner(process.);
     // Have Cerebellum takeover website navigation
     await agent.start();
 
-    // Do more things with driver now that the goal has been accomplished
+    // Goal has now been reached, you resume control over the browser
     // ...
     
   } finally {

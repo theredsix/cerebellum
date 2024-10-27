@@ -1,10 +1,15 @@
 {
   "name": "cerebellum-ai",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "LLM based browser automation",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "repository": "github:theredsix/cerebellum",
+  "bugs": {
+    "url": "https://github.com/theredsix/cerebellum/issues",
+    "email": "project@hostname.com"
+  },
   "scripts": {
     "build": "tsc",
     "prepublish": "npm run build",

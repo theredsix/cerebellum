@@ -8,8 +8,6 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
   let driver = await new Builder().forBrowser(Browser.FIREFOX).setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')).build();
   try {
     await driver.get('https://www.google.com');
-
-    await pauseForInput();
     
     // Define your goal
     const goal = 'Show me the wikipedia page of the creator of Bitcoin';
