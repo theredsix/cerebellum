@@ -4,7 +4,11 @@ import { ServiceBuilder } from 'selenium-webdriver/firefox';
 import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 
 (async function example() {
-  let driver = await new Builder().forBrowser(Browser.FIREFOX).setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')).build();
+  let driver = await new Builder()
+    .forBrowser(Browser.FIREFOX)
+    .setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')) // Necessary for snap based firefox installs
+    .build();
+
   try {
     // Set your starting page
     await driver.get('https://www.amazon.com');

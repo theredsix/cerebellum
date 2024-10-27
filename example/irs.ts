@@ -6,7 +6,11 @@ import { BrowserAgentOptions } from '../src/browser';
 
 
 (async function example() {
-  let driver = await new Builder().forBrowser(Browser.FIREFOX).setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')).build();
+    let driver = await new Builder()
+    .forBrowser(Browser.FIREFOX)
+    .setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')) // Necessary for snap based firefox installs
+    .build();
+
   try {
     await driver.get('https://www.irs.gov/');
     await pauseForInput();
