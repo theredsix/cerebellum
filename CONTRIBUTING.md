@@ -22,3 +22,9 @@ Follow these steps to get started with Cerebellum AI:
    ```
    npx tsx example/google.ts
    ```
+
+4. Start the Typescript compiler in watch mode
+   ```
+   npm run watch
+   ```
+   
