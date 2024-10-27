@@ -48,6 +48,28 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 
 See the `/example` folder for more usage examples including form filling and prompt instruction tuning.
 
+## Flexibility and Integration
+
+Cerebellum is designed to work with a large swath of scenarios. Key features include:
+
+1. Hybrid Control: Easily switch between human, AI, and automated control during a browsing session.
+2. Wide Browser Support: Compatible with any Selenium-supported browser, expanding its use beyond traditional web automation.
+3. Diverse Applications: 
+   - Enhance Electron applications with AI-assisted interactions
+   - Augment human browsing sessions with intelligent automation
+   - Enable fully autonomous web navigation and task completion
+
+This flexibility makes Cerebellum a powerful tool for a wide range of scenarios, from assisting users with complex web tasks to fully automating web-based workflows.
+
+## How it works
+
+Cerebellum models web interactions as navigation through a directed graph. Each webpage state represents a node in this graph, encompassing both visible elements and underlying data. User actions, such as clicking or typing, function as edges that transition between nodes.
+
+The process begins at an initial node representing the starting webpage. Cerebellum's objective is to find an optimal path to a goal node that signifies task completion. As it progresses, the system discovers new nodes by analyzing page screenshots and identifying interactive elements.
+
+A Large Language Model (LLM) serves as the decision-making component, evaluating the current state and determining the next action. This approach enables Cerebellum to adapt to changing web environments and make informed decisions in real-time.
+
+The system's design allows for continuous improvement. Successful navigation sessions can be used to fine-tune the LLM's performance on similar tasks.
 
 ## Class Abstractions
 
@@ -81,6 +103,7 @@ The separation of `BrowserAgent` and `Planner` allows for a clear division of re
 
 - [x] Integrate Claude 3.5 Sonnet as a `ActionPlanner`
 - [x] Demonstrate successful `BrowserAgent` across a variety of tasks
+- [ ] Improve system prompt performance
 - [ ] Improve mouse position marking on screenshots
 - [ ] Add ability for converting browser sessions into training datasets
 - [ ] Train a local model
@@ -95,6 +118,7 @@ We appreciate all contributions, whether they're bug reports, feature requests, 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
 
 ## Acknowledgements
 
