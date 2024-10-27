@@ -4,5 +4,7 @@ test/
 example/
 etc/
 
+tsconfig.json
+
 *.png
 *.tgz
