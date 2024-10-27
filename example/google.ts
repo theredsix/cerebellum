@@ -1,13 +1,13 @@
 import { Builder, Browser } from 'selenium-webdriver';
-import { ServiceBuilder } from 'selenium-webdriver/firefox';
+// import { ServiceBuilder } from 'selenium-webdriver/firefox';
 
 import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 
 
 (async function example() {
   let driver = await new Builder()
-    .forBrowser(Browser.FIREFOX)
-    .setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')) // Necessary for snap based firefox installs
+    .forBrowser(Browser.CHROME)
+    // .setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')) // Necessary for snap based firefox installs
     .build();
 
   try {
@@ -18,7 +18,9 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
     
     // Create the Cerebellum browser agent
     const planner = new AnthropicPlanner(process.env.ANTHROPIC_API_KEY as string);
-    const agent = new BrowserAgent(driver, planner, goal);
+    const agent = new BrowserAgent(driver, planner, goal, {
+      pauseAfterEachAction: true,
+    });
 
     // Have Cerebellum takeover website navigation
     await agent.start();
