@@ -73,7 +73,7 @@ The system's design allows for continuous improvement. Successful navigation ses
 
 ## Class Abstractions
 
-Cerebellum AI is built on two main class abstractions: `BrowserAgent` and `ActionPlanner`.
+Cerebellum is built on two main class abstractions: `BrowserAgent` and `ActionPlanner`.
 
 ### BrowserAgent
 
@@ -93,7 +93,7 @@ The `ActionPlanner` is an abstract class that defines the interface for differen
 - Provides instructions to the BrowserAgent on what action to perform next
 - TODO: Convert browsing sessions into a training dataset
 
-Currently, Cerebellum AI only implements the `AnthropicPlanner`, which uses the Claude 3.5 Sonnet model from Anthropic to make decisions. Nevertheless, this abstraction allows for easy integration of other planning strategies in the future, such as local models or other LLM providers.
+Currently, Cerebellum only implements the `AnthropicPlanner`, which uses the Claude 3.5 Sonnet model from Anthropic to make decisions. Nevertheless, this abstraction allows for easy integration of other planning strategies in the future, such as local models or other LLM providers.
 
 The separation of `BrowserAgent` and `Planner` allows for a clear division of responsibilities:
 - The `BrowserAgent` handles the "how" of interacting with the browser
