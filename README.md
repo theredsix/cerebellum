@@ -1,6 +1,6 @@
-# Cerebellum AI
+# Cerebellum
 
-Cerebellum AI is a lightweight browser automation tool powered by large language models (LLMs) that accomplishes user-defined goals on webpages using keyboard and mouse actions.
+Cerebellum is a lightweight browser automation tool powered by large language models (LLMs) that accomplishes user-defined goals on webpages using keyboard and mouse actions.
 
 [![Google Example Video](https://github.com/user-attachments/assets/00278da9-1c89-40a4-b72e-8c853c8c003c)](https://github.com/user-attachments/assets/811a64e2-b3d7-408c-bac2-c9bc3bd78f51)
 
@@ -11,7 +11,7 @@ Install dependencies:
 npm i cerebellum-ai
 ```
 
-Ensure you have [Selenium Webdrivers](https://www.npmjs.com/package/selenium-webdriver) installed for the browser you want to automate 
+Ensure you have [Selenium Webdrivers](https://www.npmjs.com/package/selenium-webdriver) installed for the browser you want to automate. 
 
 Run the example:
 ```typescript
@@ -47,6 +47,44 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 ## Examples
 
 See the `/example` folder for more usage examples including form filling and prompt instruction tuning.
+
+
+## Class Abstractions
+
+Cerebellum AI is built on two main class abstractions: `BrowserAgent` and `ActionPlanner`.
+
+### BrowserAgent
+
+The `BrowserAgent` class is responsible for interacting with the web browser. It:
+
+- Controls the Selenium WebDriver
+- Captures screenshots of the current webpage
+- Executes actions (like clicking, typing, etc) based on instructions from the ActionPlanner
+- Provides feedback to the ActionPlanner about the current state of the webpage
+
+### ActionPlanner
+
+The `ActionPlanner` is an abstract class that defines the interface for different planning strategies. It:
+
+- Receives the current state of the webpage (including screenshots)
+- Analyzes the state and determines the next action to take
+- Provides instructions to the BrowserAgent on what action to perform next
+- TODO: Convert browsing sessions into a training dataset
+
+Currently, Cerebellum AI only implements the `AnthropicPlanner`, which uses the Claude 3.5 Sonnet model from Anthropic to make decisions. Nevertheless, this abstraction allows for easy integration of other planning strategies in the future, such as local models or other LLM providers.
+
+The separation of `BrowserAgent` and `Planner` allows for a clear division of responsibilities:
+- The `BrowserAgent` handles the "how" of interacting with the browser
+- The `Planner` decides the "what" and "why" of the actions to be taken
+
+## Roadmap
+
+- [x] Integrate Claude 3.5 Sonnet as a `ActionPlanner`
+- [x] Demonstrate successful `BrowserAgent` across a variety of tasks
+- [ ] Improve mouse position marking on screenshots
+- [ ] Add ability for converting browser sessions into training datasets
+- [ ] Train a local model
+- [ ] Integrate local model as a `ActionPlanner`
 
 ## Contributing
 
