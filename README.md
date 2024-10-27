@@ -132,7 +132,7 @@ This project was inspired by the following:
 
 ## Maintainer
 
-* [Han Wang](mailto:han.wang.2718@gmail.com)
+* [Han Wang](https://github.com/theredsix)
 
 ## Collaborators
 
