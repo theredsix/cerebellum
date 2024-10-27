@@ -4,7 +4,7 @@ Contributions are welcome, especially if the contribution helps to advance one o
 
 ## Install locally
 
-Follow these steps to get started with Cerebellum AI:
+Follow these steps to get started with Cerebellum:
 
 1. Install dependencies:
    ```
