@@ -2,7 +2,6 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ActionPlanner, BrowserAction, BrowserState, BrowserStep, Coordinate } from '../browser';
 import sharp from 'sharp';
 import { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
-import { promises as fs } from 'fs';
 
 interface ScalingRatio {
     ratio: Coordinate;
@@ -93,8 +92,8 @@ ${additionalContext}
         const originalMeta = await sharpImage.metadata();
 
         return {
-            x: originalMeta.width,
-            y: originalMeta.height
+            x: originalMeta.width!,
+            y: originalMeta.height!
         }
     }
 
@@ -122,10 +121,8 @@ ${additionalContext}
         const sharpImage = sharp(screenshotBuffer);
         const resizedImg = await sharpImage.resize(1280, 800, { fit: 'inside' })
         const imgBuffer = await resizedImg.toBuffer();
-        // const imgBuffer = await resizedImg.jpeg({ quality: 90 }).toBuffer();
 
         const imgStr = imgBuffer.toString('base64');
-        // console.log('imgStr', imgStr);
         return imgStr;
     }
 
@@ -187,10 +184,7 @@ ${additionalContext}
 
             const markedImage = await this.markScreenshotWithCursor(currentState.screenshot, currentState.mouse);
             const resized = await this.resizeScreenshot(markedImage);
-            // Write resized image to tmp.png
-            
-            await fs.writeFile('tmp.png', resized, 'base64');
-            console.log('Screenshot saved to tmp.png');
+                        
             contentSubMsg.push({
                 type: 'image',
                 source: {
@@ -428,8 +422,6 @@ ${additionalContext}
             messages,
             betas: ["computer-use-2024-10-22"],
         });
-
-        console.log(response);
 
         const action = this.parseAction(response, scaling, currentState);
 

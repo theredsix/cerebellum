@@ -1,0 +1,13 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+      "outDir": "./dist_example",
+      "baseUrl": ".",
+      "paths": {
+        "cerebellum-ai": ["../src"]
+      }
+    },
+    "include": ["./**/*.ts"],
+    "exclude": ["node_modules"]
+  }
+  

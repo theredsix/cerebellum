@@ -1,4 +1,4 @@
-import { WebDriver, Key, Origin } from "selenium-webdriver";
+import { WebDriver, Origin } from "selenium-webdriver";
 import { parseXdotool, pauseForInput } from './util';
 
 export type BrowserGoalState = 'initial' | 'running' | 'success' | 'failed'
@@ -34,28 +34,47 @@ export abstract class ActionPlanner {
         currentState: BrowserState, sessionHistory: BrowserStep[]): Promise<BrowserAction>;
 }
 
-export class BrowserAgent {
-    private driver: WebDriver;
-    private planner: ActionPlanner;
-    private goal: string;
-    private additionalContext: string | undefined;
-    private additionalInstructions: string[] = [];
-    private state: BrowserGoalState = 'initial';
-    private history: BrowserStep[] = [];
+export interface BrowserAgentOptions {
+    additionalContext?:  string | Record<string, any>;
+    additionalInstructions?: string[];
+    waitAfterStepMS?: number;
+    pauseAfterEachAction?: boolean;
+}
 
-    constructor(driver: WebDriver, actionPlanner: ActionPlanner, goal: string,
-        additionalContext?: string | Record<string, any>, additionalInstructions?: string[]) {
+export class BrowserAgent {
+    public readonly driver: WebDriver;
+    public readonly planner: ActionPlanner;
+    public readonly goal: string;
+    public readonly additionalContext: string = "None";
+    public readonly additionalInstructions: string[] = [];
+    public readonly waitAfterStepMS: number = 500;
+    public readonly pauseAfterEachAction: boolean = false;
+    private _status: BrowserGoalState = 'initial';
+    public readonly history: BrowserStep[] = [];
+
+    constructor(driver: WebDriver, actionPlanner: ActionPlanner, goal: string, options?: BrowserAgentOptions) {
         this.driver = driver;
 
         this.planner = actionPlanner;
         this.goal = goal;
-        if (additionalContext) {
-            if (typeof additionalContext !== "string") {
-                this.additionalContext = JSON.stringify(additionalContext)
+
+        if (options) {   
+            if (options.additionalContext !== undefined) {
+                if (typeof options.additionalContext !== "string") {
+                    this.additionalContext = JSON.stringify(options.additionalContext);
+                } else {
+                    this.additionalContext = options.additionalContext;
+                }
             }
-        }
-        if (additionalInstructions) {
-            this.additionalInstructions = additionalInstructions;
+            if (options.additionalInstructions !== undefined) {
+                this.additionalInstructions = options.additionalInstructions;
+            }
+            if (options.waitAfterStepMS  !== undefined) {
+                this.waitAfterStepMS = options.waitAfterStepMS;
+            }
+            if (options.pauseAfterEachAction !== undefined) {
+                this.pauseAfterEachAction = options.pauseAfterEachAction;
+            }
         }
     }
 
@@ -121,7 +140,6 @@ window.addEventListener('contextmenu', function onContextMenu(ev) {
 
                 // We need to untype Key which is implemented 
                 const parsedKeyStrokes = parseXdotool(action.text);
-                console.log(parsedKeyStrokes);
                 let keyAction = actions;
                 for (const modifier of parsedKeyStrokes.modifiers) {
                     keyAction = keyAction.keyDown(modifier);
@@ -173,13 +191,13 @@ window.addEventListener('contextmenu', function onContextMenu(ev) {
         const nextAction = await this.getAction(currentState);
 
         if (nextAction.action === 'success') {
-            this.state = 'success';
+            this._status = 'success';
             return;
         } else if (nextAction.action === 'failure') {
-            this.state = 'failed';
+            this._status = 'failed';
             return;
         } else {
-            this.state = 'running';
+            this._status = 'running';
             await this.takeAction(nextAction);
         }
 
@@ -194,9 +212,18 @@ window.addEventListener('contextmenu', function onContextMenu(ev) {
         // Initialize the mouse inside the viewport
         await this.driver.actions().move({ x: 1, y: 1, origin: Origin.VIEWPORT }).perform();
 
-        while (['initial', 'running'].includes(this.state)) {
+        while (['initial', 'running'].includes(this._status)) {
             await this.step();
-            await pauseForInput();
+
+            await this.driver.sleep(this.waitAfterStepMS);
+
+            if (this.pauseAfterEachAction) {
+                await pauseForInput();
+            }
         }
+    }
+
+    public get status(): string {
+        return this._status;
     }
 }
