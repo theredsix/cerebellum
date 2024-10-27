@@ -3,6 +3,7 @@ import { ActionPlanner, BrowserAction, BrowserState, BrowserStep, Coordinate } f
 import sharp from 'sharp';
 import { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 
+import fs from 'fs';
 interface ScalingRatio {
     ratio: Coordinate;
     oldSize: Coordinate;
@@ -121,7 +122,17 @@ ${additionalContext}
     public async resizeScreenshot(screenshot: string): Promise<string> {
         const screenshotBuffer =  Buffer.from(screenshot, 'base64');
         const sharpImage = sharp(screenshotBuffer);
-        const resizedImg = await sharpImage.resize(1280, 800, { fit: 'inside' })
+        const resizedImg = await sharpImage.resize(1280, 800, { fit: 'inside' });
+        const imgBuffer = await resizedImg.toBuffer();
+
+        const imgStr = imgBuffer.toString('base64');
+        return imgStr;
+    }
+
+    public async resizeImageToDimensions(image: string, newDim: Coordinate): Promise<string> {
+        const screenshotBuffer =  Buffer.from(image, 'base64');
+        const sharpImage = sharp(screenshotBuffer);
+        const resizedImg = await sharpImage.resize(newDim.x, newDim.y, { fit: 'fill' });
         const imgBuffer = await resizedImg.toBuffer();
 
         const imgStr = imgBuffer.toString('base64');
@@ -171,21 +182,23 @@ ${additionalContext}
         const contentSubMsg: (Anthropic.Beta.Messages.BetaTextBlockParam | Anthropic.Beta.Messages.BetaImageBlockParam)[] = [];
 
         if (options.mousePosition) {
-            const imgDim = await this.getDimensions(currentState.screenshot);
-            const scaling = this.getScalingRatio(imgDim)
-            const scaledCoord = this.browserToLLMCoordinates(currentState.mouse, scaling)
-            resultText += `After action mouse cursor is at X: ${scaledCoord.x}, Y: ${scaledCoord.y}\n\n`
+            const imgDim = {x: currentState.width, y: currentState.height};
+            const scaling = this.getScalingRatio(imgDim);
+            const scaledCoord = this.browserToLLMCoordinates(currentState.mouse, scaling);
+            resultText += `After action mouse cursor is at X: ${scaledCoord.x}, Y: ${scaledCoord.y}\n\n`;
         }
 
         if (options.url) {
-            resultText += `After action, the tab's URL is ${currentState.url}\n\n`
+            resultText += `After action, the tab's URL is ${currentState.url}\n\n`;
         }
 
         if (options.screenshot) {
             resultText += 'Here is a screenshot of the browswer after the action was performed.\n\n';
-
-            const markedImage = await this.markScreenshotWithCursor(currentState.screenshot, currentState.mouse);
+            const viewportImage = await this.resizeImageToDimensions(currentState.screenshot, {x: currentState.width, y: currentState.height});
+            const markedImage = await this.markScreenshotWithCursor(viewportImage, currentState.mouse);
             const resized = await this.resizeScreenshot(markedImage);
+           
+            fs.writeFileSync('tmp.png', resized, 'base64');
                         
             contentSubMsg.push({
                 type: 'image',
@@ -194,11 +207,11 @@ ${additionalContext}
                     media_type: 'image/png',
                     data: resized
                 }
-            })
+            });
         }
 
         if (resultText === '') { // Put a generic text explaination for no URL or result
-            resultText += 'Action was performed.'
+            resultText += 'Action was performed.';
         }
 
         contentSubMsg.unshift({
@@ -386,8 +399,7 @@ ${additionalContext}
         currentState: BrowserState, sessionHistory: BrowserStep[]): Promise<BrowserAction> {
         const systemPrompt = this.formatSystemPrompt(goal, additionalContext, additionalInstructions);
         const messages = await this.formatIntoMessages(goal, currentState, sessionHistory);
-        const imgDim = await this.getDimensions(currentState.screenshot);
-        const scaling = this.getScalingRatio(imgDim)
+        const scaling = this.getScalingRatio({ x: currentState.width, y: currentState.height });
 
         const response = await this.client.beta.messages.create({
             model: "claude-3-5-sonnet-20241022",
@@ -397,8 +409,8 @@ ${additionalContext}
                 {
                     type: "computer_20241022",
                     name: "computer",
-                    display_width_px: scaling.newSize.x,
-                    display_height_px: scaling.newSize.y,
+                    display_width_px: currentState.width,
+                    display_height_px: currentState.height,
                     display_number: 1
                 },
                 {

@@ -79,7 +79,7 @@ export class BrowserAgent {
     }
 
     public async getState(): Promise<BrowserState> {
-        const size = await this.driver.manage().window().getSize();
+        const size = await this.driver.executeScript('return { x: window.innerWidth, y: window.innerHeight }') as Coordinate;
         const screenshot = await this.driver.takeScreenshot();
         const url = await this.driver.getCurrentUrl();
 
@@ -88,8 +88,8 @@ export class BrowserAgent {
 
         return {
             screenshot: screenshot,
-            height: size.height,
-            width: size.width,
+            height: size.y,
+            width: size.x,
             url: url,
             mouse: mousePosition,
         };

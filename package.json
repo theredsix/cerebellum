@@ -1,6 +1,6 @@
 {
   "name": "cerebellum-ai",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "LLM based browser automation",
   "type": "module",
   "main": "dist/index.js",
@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "watch": "tsc -w",
     "prepublish": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -27,5 +28,14 @@
     "@anthropic-ai/sdk": "^0.30.1",
     "selenium-webdriver": "^4.25.0",
     "sharp": "^0.33.5"
-  }
+  },
+  "keywords": [
+    "ai",
+    "automation",
+    "browser",
+    "selenium",
+    "webdriver",
+    "llm",
+    "claude"
+  ]
 }
