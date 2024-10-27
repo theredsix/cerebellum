@@ -8,7 +8,7 @@ Cerebellum is a lightweight browser automation tool powered by large language mo
 
 Install dependencies:
 ```bash
-npm i cerebellum-ai
+npm i cerebellum-ai selenium-webdriver
 ```
 
 Ensure you have [Selenium Webdrivers](https://www.npmjs.com/package/selenium-webdriver) installed for the browsers you want to automate. 
