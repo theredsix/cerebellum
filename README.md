@@ -2,7 +2,7 @@
 
 Cerebellum AI is a lightweight browser automation tool powered by large language models (LLMs) that accomplishes user-defined goals on webpages using keyboard and mouse actions.
 
-[![Google Example](/etc/image/bitcoin.png)](/etc/screencast/bitcoin.mp4)
+[![Google Example Video](/etc/image/bitcoin.png)](/etc/screencast/bitcoin.mp4)
 
 ## Quick Start
 
@@ -57,9 +57,23 @@ const planner = new AnthropicPlanner(process.);
 
 See the `/example` folder for more usage examples including form filling and prompt instruction tuning.
 
+## Contributing
+
+We welcome contributions to Cerebellum! For more detailed information on how to contribute, please see our [CONTRIBUTING.md](CONTRIBUTING.md) file.
+
+We appreciate all contributions, whether they're bug reports, feature requests, or code changes. 
+
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
+
+## Acknowledgements
+
+This project was inspired by the following:
+
+- [Claude Computer Use](https://www.anthropic.com/news/3-5-models-and-computer-use)
+- [Agent.exe](https://github.com/corbt/agent.exe)
+- [Skyvern](https://github.com/Skyvern-AI/skyvern)
 
 ## Maintainer
 
