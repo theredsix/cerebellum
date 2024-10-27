@@ -52,9 +52,11 @@ export class AnthropicPlanner extends ActionPlanner {
 </SYSTEM_CAPABILITY>
 
 <IMPORTANT>
-* You will use information provided in <USER DATA> to fill out forms on the way to your goal
+* You will use information provided in <USER DATA> to fill out forms on the way to your goal.
+* When completing forms, always scroll down until you can see the CONTINUE, NEXT or SUBMIT button.
 * Always scroll a UI element fully into view before interacting with it.
 * DO NOT MOVE THE MOUSE TO COORDINATES EQUAL TO WHERE IT CURRENTLY IS.
+* Replan your move after each 'click', 'type' or 'key' action
 * Always move the mouse to the center of a UI element when hovering or clicking. The center is defined as half of the height and half of the width of the UI element.
 * Always output a chain of thought before calling a function. In your chain of thought, output the current state of the webpage and what you have are attempting to accomplish.
 ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
