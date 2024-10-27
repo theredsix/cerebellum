@@ -20,7 +20,7 @@ import { AnthropicPlanner, BrowserAgent } from 'cerebellum-ai';
 
 
 (async function example() {
-  let driver = await new Builder().forBrowser(Browser.FIREFOX);
+  let driver = await new Builder().forBrowser(Browser.FIREFOX).build();
   try {
     await driver.get('https://www.google.com');
     
