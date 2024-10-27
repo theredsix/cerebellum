@@ -1,6 +1,8 @@
 # Cerebellum AI
 
-Cerebellum AI is a lightweight LLM-based browser automation tool that accomplishes plain text goals on webpages. 
+Cerebellum AI is a lightweight browser automation tool powered by large language models (LLMs) that accomplishes user-defined goals on webpages using keyboard and mouse actions.
+
+[![Google Example](/etc/image/bitcoin.png)](/etc/screencast/bitcoin.mp4)
 
 ## Quick Start
 
@@ -21,15 +23,13 @@ Run the example:
 import { Builder, Browser } from 'selenium-webdriver';
 import { ServiceBuilder } from 'selenium-webdriver/firefox';
 
-import { AnthropicPlanner } from '../src/planners/anthropic';
+import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 
-import { BrowserAgent } from '../src/browser';
-
-const planner = new AnthropicPlanner(undefined);
+const planner = new AnthropicPlanner(process.);
 
 (async function example() {
   // Setup Selenium  
-  let driver = await new Builder().forBrowser(Browser.FIREFOX).build();
+  let driver = await new Builder().forBrowser(Browser.FIREFOX).build(); // Choose your browser
   try {
     // Navigate to your inital page
     await driver.get('https://www.google.com');
@@ -37,13 +37,15 @@ const planner = new AnthropicPlanner(undefined);
     // Declare the goal you want to accomplish in this browser session
     const goal = 'Show me the wikipedia page of the creator of Bitcoin'
 
-    // Create the agent
+    // Create the Cerebellum browser agent
+    const planner = new AnthropicPlanner(process.env.ANTHROPIC_API_KEY as string);
     const agent = new BrowserAgent(driver, planner, goal);
 
-    // Hand over control to Cerebellum
+    // Have Cerebellum takeover website navigation
     await agent.start();
 
     // Do more things with driver now that the goal has been accomplished
+    // ...
     
   } finally {
     await driver.quit();
@@ -51,9 +53,9 @@ const planner = new AnthropicPlanner(undefined);
 })();
 ```
 
-## Example Breakdown
+## Examples
 
-The `example/google.ts` file showcases the basic usage of Cerebellum AI:
+See the `/example` folder for more usage examples including form filling and prompt instruction tuning.
 
 ## License
 
