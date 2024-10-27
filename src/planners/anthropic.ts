@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { ActionPlanner, BrowserAction, BrowserState, BrowserStep, Coordinate } from './browser';
+import { ActionPlanner, BrowserAction, BrowserState, BrowserStep, Coordinate } from '../browser';
 import sharp from 'sharp';
 import { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import { promises as fs } from 'fs';
