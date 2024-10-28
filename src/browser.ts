@@ -7,13 +7,19 @@ export interface BrowserState {
     screenshot: string;
     height: number;
     width: number;
+    scrollbar: ScrollBar;
     url: string;
     mouse: Coordinate;
 }
 
+export interface ScrollBar {
+    offset: number;
+    height: number;
+}
+
 export interface BrowserAction {
     action: "success" | "failure" | "key" | "type" | "mouse_move" | "left_click" | "left_click_drag" |
-    "right_click" | "middle_click" | "double_click" | "screenshot" | "cursor_position";
+    "right_click" | "middle_click" | "double_click" | "screenshot" | "cursor_position" | "scroll_up" | "scroll_down";
     coordinate?: [number, number];
     text?: string;
     reasoning: string;
@@ -85,11 +91,13 @@ export class BrowserAgent {
 
         // Default return when no response is required
         const mousePosition = await this.getMousePosition();
+        const scrollPosition = await this.getScrollPosition();
 
         return {
             screenshot: screenshot,
             height: size.y,
             width: size.x,
+            scrollbar: scrollPosition,
             url: url,
             mouse: mousePosition,
         };
@@ -99,21 +107,40 @@ export class BrowserAgent {
         return await this.planner.planAction(this.goal, this.additionalContext, this.additionalInstructions, currentState, this.history)
     }
 
+    public async getScrollPosition(): Promise<ScrollBar> {
+        const [offset, height] = (await this.driver.executeScript('return [window.pageYOffset/document.documentElement.scrollHeight , window.innerHeight/document.documentElement.scrollHeight]')) as [number, number];
+        
+        console.log({
+            offset,
+            height
+        });
+
+        return {
+            height,
+            offset,
+        }        
+    }
+
     public async getMousePosition(): Promise<Coordinate> {
-
         const listenScript = `
-window.addEventListener('contextmenu', function onContextMenu(ev) {
-    ev.preventDefault();
-    window.last_context_click_x = ev.clientX;
-    window.last_context_click_y = ev.clientY;
-    window.removeEventListener('contextmenu', onContextMenu);
-    return false;
-}, false);`;
-        await this.driver.executeScript(listenScript);
-        await this.driver.actions().contextClick().perform();
+        window.last_mouse_x = 0;
+        window.last_mouse_y = 0;
+        window.addEventListener('mousemove', function onMouseMove(ev) {
+            window.last_mouse_x = ev.clientX;
+            window.last_mouse_y = ev.clientY;
+            window.removeEventListener('mousemove', onMouseMove);
+        });`;
 
-        const x = await this.driver.executeScript('return window.last_context_click_x');
-        const y = await this.driver.executeScript('return window.last_context_click_y');
+        await this.driver.executeScript(listenScript);
+
+        // Small mouse movement to trigger event
+        await this.driver.actions().move({x: 3, y: 3, origin: Origin.POINTER}).perform();
+        await this.driver.actions().move({x: -3, y: -3, origin: Origin.POINTER}).perform();
+        
+        // Give time for event to register
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const [x, y] = (await this.driver.executeScript('return [window.last_mouse_x, window.last_mouse_y]')) as [number, number];
 
         console.log(`Mouse position: x=${x}, y=${y}`);
 
@@ -131,7 +158,7 @@ window.addEventListener('contextmenu', function onContextMenu(ev) {
         };
     }
 
-    public async takeAction(action: BrowserAction): Promise<void> {
+    public async takeAction(action: BrowserAction, lastState: BrowserState): Promise<void> {
         const actions = this.driver.actions({ async: true });
 
         switch (action.action) {
@@ -180,6 +207,12 @@ window.addEventListener('contextmenu', function onContextMenu(ev) {
             case 'cursor_position':
                 // Do nothing since we always report cursor position and take screenshot
                 break;
+            case 'scroll_down':
+                await this.driver.executeScript(`window.scrollBy(0, ${lastState.height / 2})`);
+                break;
+            case 'scroll_up':
+                await this.driver.executeScript(`window.scrollBy(0, -${lastState.height / 2})`);
+                break;
             default:
                 throw new Error(`Unsupported action: ${action.action}`);
         }
@@ -198,7 +231,7 @@ window.addEventListener('contextmenu', function onContextMenu(ev) {
             return;
         } else {
             this._status = 'running';
-            await this.takeAction(nextAction);
+            await this.takeAction(nextAction, currentState);
         }
 
         // Push the history at the start of this step to currentState
