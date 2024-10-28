@@ -62,7 +62,7 @@ This flexibility makes Cerebellum a powerful tool for tasks ranging from assisti
 
 ## How it works
 
-Cerebellum implicitly models web interactions as navigation through a directed graph. Each webpage represents a node, encompassing both visible elements and underlying data. User actions, like clicking or typing, serve as edges that transition between nodes.
+A simplified model of web browsing can be seen as navigation through a directed graph. Each webpage state represents a node, encompassing both visible elements and underlying data. User actions, like clicking or typing, serve as edges that transition between nodes.
 
 Starting at an initial webpage, Cerebellum's objective is to find an optimal path to a target node that completes the task. It discovers new nodes by analyzing page content and identifying interactive elements.
 
