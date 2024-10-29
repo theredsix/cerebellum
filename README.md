@@ -52,7 +52,7 @@ A lightweight browser using agent that accomplishes user-defined goals on webpag
 5.  Use Cerebellum to accomplish a goal on a website.
 
     ```typescript
-    // Point the browser on a website
+    // Point the browser to a website
     await browser.get('https://www.google.com');
     
     // Define your goal
@@ -62,7 +62,7 @@ A lightweight browser using agent that accomplishes user-defined goals on webpag
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY as string;
 
     // Initialize ActionPlanner with LLM
-    const planner = new AnthropicPlanner(anthropicApiKey);
+    const planner = new AnthropicPlanner({ apiKey: anthropicApiKey });
 
     // Initialize BrowserAgent to tie together the browser, planner and goal
     const agent = new BrowserAgent(browser, planner, goal);
@@ -81,13 +81,13 @@ Check out the [/example](/example) folder for more use cases, including form fil
 
 ## Usage
 
-Cerebellum is built on two main class abstractions: `BrowserAgent` and `ActionPlanner`. The separation of `BrowserAgent` and `Planner` allows for a clear division of responsibilities:
+Cerebellum is built on two main class abstractions: `BrowserAgent` and `ActionPlanner`.
 - The `BrowserAgent` handles the "how" of interacting with the browser
 - The `ActionPlanner` decides the "what" and "why" of the actions to be taken
 
 ### ActionPlanner
 
-The ActionPlanner is an abstract class that defines the interface for planning strategies:
+The ActionPlanner is an abstract class that plans navigation strategies:
 
 - Receives the current state of the webpage (including screenshots).
 - Analyzes the state and determines the next action.
@@ -124,7 +124,11 @@ The BrowserAgent class manages interactions with the browser, including:
 - Executing actions (e.g., clicking, typing) based on instructions from the ActionPlanner.
 
 ```typescript
-  const agent = BrowserAgent(driver: WebDriver, actionPlanner: ActionPlanner, goal: string, options?: BrowserAgentOptions)
+  const agent = BrowserAgent(
+    browser: WebDriver, 
+    actionPlanner: ActionPlanner, 
+    goal: string, 
+    options?: BrowserAgentOptions)
 ```
 
 #### BrowserAgentOptions
