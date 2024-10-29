@@ -5,17 +5,14 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 import { BrowserAgentOptions } from '../src/browser';
 
 (async function example() {
-  let driver = await new Builder()
-    .forBrowser(Browser.FIREFOX)
-    .setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')) // Necessary for snap based firefox installs
-    .build();
+  let driver = await new Builder().forBrowser(Browser.CHROME).build();
 
   try {
     // Set your starting page
     await driver.get('https://en.wikipedia.org/wiki/Special:Random');
     
     // Define your goal
-    const goal = 'You have been dropped on a random wikipedia page, navigate to the wikipedia page for California.';
+    const goal = 'You have been dropped on a random wikipedia page, navigate to the wikipedia page for California using only links inside articles.';
 
     const options: BrowserAgentOptions = {
         additionalInstructions: [

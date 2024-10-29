@@ -3,20 +3,31 @@
   "version": "0.0.7",
   "description": "LLM based browser automation",
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    "import": "./index.js",
-    "require": "./index.cjs"
+    "import": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "require": {
+      "types": "./dist/index.d.cts",
+      "require": "./dist/index.cjs"
+    }
   },
-  "types": "dist/index.d.ts",
-  "repository": "github:theredsix/cerebellum",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theredsix/cerebellum.git"
+  },
   "bugs": {
-    "url": "https://github.com/theredsix/cerebellum/issues",
-    "email": "project@hostname.com"
+    "url": "https://github.com/theredsix/cerebellum/issues"
   },
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs",
-    "watch": "tsup src/index.ts --watch --dts --format esm,cjs",
-    "prepublishOnly": "npm run build",
+    "build:clean": "rm -rf dist",
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean --sourcemap",
+    "watch": "tsup src/index.ts --watch --dts --format esm,cjs --clean --sourcemap",
+    "release": "npm run build:clean && npm run build  && npm publish ",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Han Wang",

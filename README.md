@@ -15,20 +15,22 @@ Ensure you have [Selenium Webdrivers](https://www.npmjs.com/package/selenium-web
 
 ```typescript
 import { Builder, Browser } from 'selenium-webdriver';
-
 import { AnthropicPlanner, BrowserAgent } from 'cerebellum-ai';
 
-
 (async function example() {
-  let driver = await new Builder().forBrowser(Browser.FIREFOX).build();
+  // Initialize your 
+  const driver = await new Builder().forBrowser(Browser.CHROME).build();
   try {
     await driver.get('https://www.google.com');
     
     // Define your goal
     const goal = 'Show me the wikipedia page of the creator of Bitcoin';
     
+    // Set your Anthropic API key
+    const anthropicApiKey = process.env.ANTHROPIC_API_KEY as string;
+
     // Create the Cerebellum browser agent
-    const planner = new AnthropicPlanner(process.env.ANTHROPIC_API_KEY as string);
+    const planner = new AnthropicPlanner(anthropicApiKey);
     const agent = new BrowserAgent(driver, planner, goal);
 
     // Have Cerebellum takeover website navigation

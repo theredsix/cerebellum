@@ -5,10 +5,7 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 
 
 (async function example() {
-  let driver = await new Builder()
-    .forBrowser(Browser.CHROME)
-    // .setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')) // Necessary for snap based firefox installs
-    .build();
+  let driver = await new Builder().forBrowser(Browser.CHROME).build();
 
   try {
     await driver.get('https://www.google.com');
