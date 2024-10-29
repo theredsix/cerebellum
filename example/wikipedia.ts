@@ -19,7 +19,7 @@ import { BrowserAgentOptions } from '../src/browser';
 
     const options: BrowserAgentOptions = {
         additionalInstructions: [
-            'Do not search or use the search bar.'
+            'Do not search or use the search bar on any websites.'
         ],
         pauseAfterEachAction: true
     }

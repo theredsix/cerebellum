@@ -23,6 +23,7 @@ export interface BrowserAction {
     coordinate?: [number, number];
     text?: string;
     reasoning: string;
+    id: string;
 }
 
 export interface BrowserStep {
