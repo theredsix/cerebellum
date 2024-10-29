@@ -29,7 +29,7 @@ import { BrowserAgentOptions } from '../src/browser';
     }
     
     // Create the Cerebellum browser agent
-    const planner = new AnthropicPlanner(process.env.ANTHROPIC_API_KEY as string);
+    const planner = new AnthropicPlanner({ apiKey: process.env.ANTHROPIC_API_KEY as string});
     const agent = new BrowserAgent(driver, planner, goal, options);
 
     // Have Cerebellum takeover website navigation
