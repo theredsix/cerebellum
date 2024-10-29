@@ -5,7 +5,9 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 import { BrowserAgentOptions } from '../src/browser';
 
 (async function example() {
-  let driver = await new Builder().forBrowser(Browser.CHROME).build();
+  let driver = await new Builder().forBrowser(Browser.FIREFOX)
+    .setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver'))
+    .build();
 
   try {
     // Set your starting page
@@ -16,15 +18,21 @@ import { BrowserAgentOptions } from '../src/browser';
 
     const options: BrowserAgentOptions = {
       additionalInstructions: [
-        'Do not add to cart directly from search results, click to open item details and then add to cart.'
+        'Do not add to cart directly from search results, click the item text to open item details and then add to cart.'
       ]
     }
     
     // Create the Cerebellum browser agent
-    const planner = new AnthropicPlanner(process.env.ANTHROPIC_API_KEY as string);
+    const planner = new AnthropicPlanner({ apiKey: process.env.ANTHROPIC_API_KEY as string});
 
 
     const agent = new BrowserAgent(driver, planner, goal);
+
+    console.log({
+      goal
+    });
+
+    await pauseForInput();
 
     // Have Cerebellum takeover website navigation
     await agent.start();

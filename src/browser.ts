@@ -46,6 +46,7 @@ export interface BrowserAgentOptions {
     additionalInstructions?: string[];
     waitAfterStepMS?: number;
     pauseAfterEachAction?: boolean;
+    maxSteps?: number;
 }
 
 export class BrowserAgent {
@@ -56,6 +57,7 @@ export class BrowserAgent {
     public readonly additionalInstructions: string[] = [];
     public readonly waitAfterStepMS: number = 500;
     public readonly pauseAfterEachAction: boolean = false;
+    public readonly maxSteps: number = 50;
     private _status: BrowserGoalState = 'initial';
     public readonly history: BrowserStep[] = [];
 
@@ -81,6 +83,9 @@ export class BrowserAgent {
             }
             if (options.pauseAfterEachAction !== undefined) {
                 this.pauseAfterEachAction = options.pauseAfterEachAction;
+            }
+            if (options.maxSteps) {
+                this.maxSteps = this.maxSteps;
             }
         }
     }
@@ -111,11 +116,6 @@ export class BrowserAgent {
     public async getScrollPosition(): Promise<ScrollBar> {
         const [offset, height] = (await this.driver.executeScript('return [window.pageYOffset/document.documentElement.scrollHeight , window.innerHeight/document.documentElement.scrollHeight]')) as [number, number];
         
-        console.log({
-            offset,
-            height
-        });
-
         return {
             height,
             offset,
@@ -142,8 +142,6 @@ export class BrowserAgent {
         await new Promise(resolve => setTimeout(resolve, 100));
 
         const [x, y] = (await this.driver.executeScript('return [window.last_mouse_x, window.last_mouse_y]')) as [number, number];
-
-        console.log(`Mouse position: x=${x}, y=${y}`);
 
         if (typeof x === 'number' && typeof y === 'number') {
             return {
@@ -246,7 +244,7 @@ export class BrowserAgent {
         // Initialize the mouse inside the viewport
         await this.driver.actions().move({ x: 1, y: 1, origin: Origin.VIEWPORT }).perform();
 
-        while (['initial', 'running'].includes(this._status)) {
+        while (['initial', 'running'].includes(this._status) && this.history.length <= this.maxSteps) {
             await this.step();
 
             await this.driver.sleep(this.waitAfterStepMS);

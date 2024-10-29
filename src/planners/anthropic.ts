@@ -20,8 +20,11 @@ const cursor64 = 'iVBORw0KGgoAAAANSUhEUgAAAAoAAAAQCAYAAAAvf+5AAAAAw3pUWHRSYXcgcH
 const cursorBuffer = Buffer.from(cursor64, 'base64');
 
 export interface AnthropicPlannerOptions {
-    screenshotHistory: number;
-    mouseJitterReduction: number;
+    screenshotHistory?: number;
+    mouseJitterReduction?: number;
+    apiKey?: string;
+    client?: Anthropic;
+    debugImagePath?: string;
 }
 
 export class AnthropicPlanner extends ActionPlanner {
@@ -30,23 +33,23 @@ export class AnthropicPlanner extends ActionPlanner {
     private mouseJitterReduction: number = 5;
     private inputTokenUsage: number = 0;
     private outputTokenUsage: number = 0;
+    private debugImagePath: string | undefined;
+    private debug: boolean = false;
 
-    constructor(_none: undefined);
-    constructor(apiKey: string);
-    constructor(client: Anthropic);
-
-    constructor(apiKeyOrClient: undefined | string | Anthropic, options?: AnthropicPlannerOptions) {
+    constructor(options?: AnthropicPlannerOptions) {
         super();
-        if (typeof apiKeyOrClient === 'string') {
-            this.client = new Anthropic({ apiKey: apiKeyOrClient });
-        } else if (typeof apiKeyOrClient === 'undefined') {
-            this.client = new Anthropic();
+
+        if (options?.client) {
+            this.client = options.client;
+        } else if (options?.apiKey) {
+            this.client = new Anthropic({ apiKey: options.apiKey });
         } else {
-            this.client = apiKeyOrClient;
+            this.client = new Anthropic();
         }
 
         this.screenshotHistory = options?.screenshotHistory ?? this.screenshotHistory;
         this.mouseJitterReduction = options?.screenshotHistory ?? this.mouseJitterReduction;
+        this.debugImagePath = options?.debugImagePath;
     }
 
     public formatSystemPrompt(goal: string, additionalContext: string, additionalInstructions: string[]): string {
@@ -69,7 +72,6 @@ ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
 </IMPORTANT>`;
         
         return prompt.trim();
-
     }
 
     private createToolUseId(): string {
@@ -81,8 +83,6 @@ ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
         for (let i = 0; i < idLength; i++) {
             result += characters.charAt(Math.floor(Math.random() * characters.length));
         }
-
-        console.log('Generated fake id:', result);
 
         return result;
     }
@@ -111,12 +111,6 @@ ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
         const scrollbarHeight = Math.floor(height * scrollbar.height);
         const scrollbarTop = Math.floor(height * scrollbar.offset);
 
-        console.log({
-            scrollbarHeight,
-            scrollbarWidth,
-            scrollbarTop
-        })
-        
         // Create a gray rectangle for the scrollbar
         const scrollbarBuffer = await sharp({
             create: {
@@ -207,7 +201,6 @@ ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
             const imgDim = {x: currentState.width, y: currentState.height};
             const scaling = this.getScalingRatio(imgDim);
             const scaledCoord = this.browserToLLMCoordinates(currentState.mouse, scaling);
-            console.log(scaling);
             resultText += `After action mouse cursor is at X: ${scaledCoord.x}, Y: ${scaledCoord.y}\n\n`;
         }
 
@@ -222,7 +215,9 @@ ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
             const markedImage = await this.markScreenshot(viewportImage, currentState.mouse, currentState.scrollbar);
             const resized = await this.resizeScreenshot(markedImage);
            
-            fs.writeFileSync('tmp.png', resized, 'base64');
+            if (this.debugImagePath){
+                fs.writeFileSync(this.debugImagePath, resized, 'base64');
+            }
                         
             contentSubMsg.push({
                 type: 'image',
@@ -529,14 +524,12 @@ ${additionalContext}
             betas: ["computer-use-2024-10-22"],
         });
 
-        console.log(response);
         console.log(`Token usage - Input: ${response.usage.input_tokens}, Output: ${response.usage.output_tokens}`);
         this.inputTokenUsage += response.usage.input_tokens;
         this.outputTokenUsage += response.usage.output_tokens;
         console.log(`Cumulative token usage - Input: ${this.inputTokenUsage}, Output: ${this.outputTokenUsage}, Total: ${this.inputTokenUsage + this.outputTokenUsage}`);
 
         const action = this.parseAction(response, scaling, currentState);
-
         console.log(action);
 
         return action;
