@@ -1,9 +1,12 @@
 {
   "name": "cerebellum-ai",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "LLM based browser automation",
   "type": "module",
-  "main": "dist/index.js",
+  "exports": {
+    "import": "./index.js",
+    "require": "./index.cjs"
+  },
   "types": "dist/index.d.ts",
   "repository": "github:theredsix/cerebellum",
   "bugs": {
@@ -11,9 +14,9 @@
     "email": "project@hostname.com"
   },
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
-    "prepublish": "npm run build",
+    "build": "tsup src/index.ts --dts --format esm,cjs",
+    "watch": "tsup src/index.ts --watch --dts --format esm,cjs",
+    "prepublishOnly": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Han Wang",
@@ -24,6 +27,7 @@
   "devDependencies": {
     "@types/selenium-webdriver": "^4.1.26",
     "@types/sharp": "^0.31.1",
+    "tsup": "8.3.5",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3"
   },

@@ -75,7 +75,7 @@ ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
     private createToolUseId(): string {
         const prefix = 'toolu_01';
         const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        const idLength = 24;
+        const idLength = 22;
         let result = prefix;
 
         for (let i = 0; i < idLength; i++) {
