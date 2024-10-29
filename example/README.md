@@ -18,4 +18,4 @@
 
 ### Note
 
-LLM computer use is still in its infancy and the examples in the folder may fail or have inaccurate results.
+LLM computer use is still in its infancy and the examples in the folder may exhibit flaky behavior.
