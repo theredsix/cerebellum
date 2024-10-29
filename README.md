@@ -2,7 +2,7 @@
 
 A lightweight browser using agent that accomplishes user-defined goals on webpages using keyboard and mouse actions.
 
-[![Google Example Video](https://github.com/user-attachments/assets/00278da9-1c89-40a4-b72e-8c853c8c003c)](https://github.com/user-attachments/assets/811a64e2-b3d7-408c-bac2-c9bc3bd78f51)
+[![Google Example Video](https://github.com/user-attachments/assets/811a64e2-b3d7-408c-bac2-c9bc3bd78f51)](https://github.com/user-attachments/assets/a0295ddb-6969-4946-a4ef-e0566730acee)
 
 ## How It Works
 
