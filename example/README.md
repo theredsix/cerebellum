@@ -2,11 +2,17 @@
 
 1. Pull the repo from github.
 
-2. `cd` into the directory and run:
+    ```git clone git@github.com:theredsix/cerebellum.git```
+
+2. `cd` into the directory
+
+    ```cd cerebellum```
+
+3. Install dependencies
 
     ```npm install```
 
-3. Run the google.ts example.
+4. Run the google.ts example.
 
     ```npx tsx example/google.ts```
 
