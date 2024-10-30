@@ -32,7 +32,7 @@ Goal: `Find a USB C to C cable that is 10 feet long and add it to cart`
 
 1. Set up your Anthropic API key and add the `ANTHROPIC_API_KEY` environment variable.
 
-2. Install Cerebellum and [Selenium](https://www.npmjs.com/package/selenium-webdriver) from npm:
+2. Install [Cerebellum](https://www.npmjs.com/package/cerebellum-ai) and [Selenium](https://www.npmjs.com/package/selenium-webdriver) from npm:
 
     ```
     npm i cerebellum-ai selenium-webdriver
