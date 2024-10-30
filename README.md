@@ -56,6 +56,8 @@ Goal: `Find a USB C to C cable that is 10 feet long and add it to cart`
 5.  Use Cerebellum to accomplish a goal on a website.
 
     ```typescript
+    import { AnthropicPlanner, BrowserAgent} from 'cerebellum-ai';
+
     // Point the browser to a website
     await browser.get('https://www.google.com');
     
