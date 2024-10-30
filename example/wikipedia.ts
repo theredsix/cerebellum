@@ -1,8 +1,6 @@
 import { Builder, Browser } from 'selenium-webdriver';
-import { ServiceBuilder } from 'selenium-webdriver/firefox';
 
-import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
-import { BrowserAgentOptions } from '../src/browser';
+import { AnthropicPlanner, BrowserAgentOptions, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 
 (async function example() {
   let driver = await new Builder().forBrowser(Browser.CHROME).build();

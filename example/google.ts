@@ -1,5 +1,4 @@
 import { Builder, Browser } from 'selenium-webdriver';
-// import { ServiceBuilder } from 'selenium-webdriver/firefox';
 
 import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 
@@ -14,7 +13,10 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
     const goal = 'Show me the wikipedia page of the creator of Bitcoin';
     
     // Create the Cerebellum browser agent
-    const planner = new AnthropicPlanner({ apiKey: process.env.ANTHROPIC_API_KEY as string});
+    const planner = new AnthropicPlanner({ 
+      apiKey: process.env.ANTHROPIC_API_KEY as string,
+      debugImagePath: './llmView.png'
+    });
     const agent = new BrowserAgent(driver, planner, goal, {
       pauseAfterEachAction: true,
     });

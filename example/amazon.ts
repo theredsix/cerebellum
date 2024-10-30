@@ -1,13 +1,10 @@
 import { Builder, Browser } from 'selenium-webdriver';
-import { ServiceBuilder } from 'selenium-webdriver/firefox';
 
-import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
-import { BrowserAgentOptions } from '../src/browser';
+import { AnthropicPlanner, BrowserAgentOptions, BrowserAgent, pauseForInput } from 'cerebellum-ai';
+
 
 (async function example() {
-  let driver = await new Builder().forBrowser(Browser.FIREFOX)
-    .setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver'))
-    .build();
+  let driver = await new Builder().forBrowser(Browser.CHROME).build();
 
   try {
     // Set your starting page
@@ -29,10 +26,6 @@ import { BrowserAgentOptions } from '../src/browser';
     const planner = new AnthropicPlanner({ apiKey: process.env.ANTHROPIC_API_KEY as string});
 
     const agent = new BrowserAgent(driver, planner, goal, options);
-
-    console.log({
-      goal
-    });
 
     await pauseForInput();
 

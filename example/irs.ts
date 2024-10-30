@@ -1,8 +1,6 @@
 import { Builder, Browser } from 'selenium-webdriver';
-import { ServiceBuilder } from 'selenium-webdriver/firefox';
 
-import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
-import { BrowserAgentOptions } from '../src/browser';
+import { AnthropicPlanner, BrowserAgentOptions, BrowserAgent, pauseForInput } from 'cerebellum-ai';
 
 
 (async function example() {
@@ -10,7 +8,6 @@ import { BrowserAgentOptions } from '../src/browser';
 
   try {
     await driver.get('https://www.irs.gov/');
-    await pauseForInput();
     
     // Define your goal
     const goal = 'Check my refund status.';
