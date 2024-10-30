@@ -2,6 +2,10 @@
 
 A lightweight browser using agent that accomplishes user-defined goals on webpages using keyboard and mouse actions.
 
+## See It In Action
+
+Goal: `Find a USB C to C cable that is 10 feet long and add it to cart`
+
 [![Google Example Video](https://github.com/user-attachments/assets/811a64e2-b3d7-408c-bac2-c9bc3bd78f51)](https://github.com/user-attachments/assets/a0295ddb-6969-4946-a4ef-e0566730acee)
 
 ## How It Works
