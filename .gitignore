@@ -15,12 +15,19 @@ build/
 .env.local
 .env.*.local
 
-# IDE and editor files
-.vscode/
+# IDE/Editor
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
+.vs/
+*.sublime-workspace
+*.sublime-project
+.settings/
+.project
+.classpath
+*.code-workspace
 
 # Operating system files
 .DS_Store
@@ -84,3 +91,51 @@ dist
 # FuseBox cache
 .fusebox/
 
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+bin/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+.pytest_cache/
+.coverage
+coverage.xml
+*.cover
+*.py,cover
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.pyre/
+.pytype/
+cython_debug/
+poetry.lock
+
+# Documentation
+docs/_build/
+docs/build/
+site/
+python/docs/build/
