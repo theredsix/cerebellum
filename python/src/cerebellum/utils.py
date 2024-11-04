@@ -6,7 +6,7 @@ from typing import NamedTuple
 from selenium.webdriver.common.keys import Keys
 
 
-def pause_for_input() -> None:
+def pause_for_input(prompt: str | None = None) -> bool:
     """Pause execution for keyboard input.
 
     This function temporarily changes terminal input to read every key, without
@@ -18,18 +18,19 @@ def pause_for_input() -> None:
         Press any key to continue...
         # Execution pauses until key press
     """
+    # TODO: Verify win32 functionality, if not consider separate approach.
+    # TODO: Have better return type for success bool
+    print(prompt or "Press any key to continue...")
+
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
     try:
-        print("Press any key to continue...")
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    except (termios.error, AttributeError):
-        # TODO: Update better handling for win32 environment
-        input("Press Enter to continue...")
+        tty.setraw(fd)
+        sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+    return True
 
 
 class KeyMapping(NamedTuple):
