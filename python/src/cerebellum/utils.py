@@ -128,7 +128,7 @@ def parse_xdotool(xdotool_command: str) -> KeyMapping:
     }
 
     modifiers = [
-        key_mapping[part.lower()]
+        key_mapping.get(part.lower(), part)
         for part in key_parts
         if part.lower() in ["ctrl", "alt", "shift", "super", "command", "meta"]
     ]
