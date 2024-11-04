@@ -50,3 +50,7 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/cerebellum --cov-report=html --cov-report=term-missing"
+testpaths = ["tests"]
