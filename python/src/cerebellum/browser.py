@@ -8,7 +8,7 @@ import json
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import StrEnum
 from typing import Any, Literal
 
 from selenium.webdriver import ActionChains
@@ -18,13 +18,22 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from .utils import parse_xdotool, pause_for_input
 
 
-class BrowserGoalState(Enum):
-    """Enumeration of browser automation states."""
+class BrowserGoalState(StrEnum):
+    """Enumeration of browser automation states.
 
-    INITIAL = auto()
-    RUNNING = auto()
-    SUCCESS = auto()
-    FAILED = auto()
+    This enum represents the possible states of a browser automation task.
+
+    Attributes:
+        INITIAL: Starting state before automation begins
+        RUNNING: Currently executing browser actions
+        SUCCESS: Goal successfully achieved
+        FAILED: Goal could not be achieved
+    """
+
+    INITIAL = "initial"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
 
 
 @dataclass

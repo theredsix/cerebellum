@@ -46,3 +46,18 @@ def test_browser_agent_dict_context():
     agent = BrowserAgent(driver, planner, "some goal", options)
 
     assert agent.additional_context == '{"key": "value"}'
+
+
+def test_browser_goal_state_values():
+    """Test BrowserGoalState string values match TypeScript implementation."""
+    assert BrowserGoalState.INITIAL == "initial"
+    assert BrowserGoalState.RUNNING == "running"
+    assert BrowserGoalState.SUCCESS == "success"
+    assert BrowserGoalState.FAILED == "failed"
+
+    # Test string comparison works both ways
+    assert "initial" == BrowserGoalState.INITIAL
+
+    # Test type checking
+    state = BrowserGoalState.INITIAL
+    assert isinstance(state, BrowserGoalState)

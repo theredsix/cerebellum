@@ -54,7 +54,8 @@ def parse_xdotool(xdotool_command: str) -> KeyMapping:
         >>> parse_xdotool("ctrl+c")
         KeyMapping(modifiers=[Keys.CONTROL], keys=['c'])
     """
-    key_parts = xdotool_command.split("+")
+    # Handle splitting and stripping leading/trailing whitespace
+    key_parts = [part.strip() for part in xdotool_command.split("+")]
 
     # Dictionary mapping xdotool keys to Selenium Keys constants
     key_mapping = {
