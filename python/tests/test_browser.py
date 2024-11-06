@@ -1,5 +1,10 @@
 from unittest.mock import Mock
-from cerebellum.browser import BrowserAgent, BrowserGoalState, BrowserAgentOptions
+from cerebellum.browser import (
+    BrowserAgent,
+    BrowserGoalState,
+    BrowserAgentOptions,
+    Coordinate,
+)
 
 
 def test_browser_agent_init():
@@ -61,3 +66,11 @@ def test_browser_goal_state_values():
     # Test type checking
     state = BrowserGoalState.INITIAL
     assert isinstance(state, BrowserGoalState)
+
+
+def test_coordinate_class():
+    """Test Coordinate class functionality."""
+    coord = Coordinate(x=10, y=20)
+
+    assert coord.x == 10
+    assert coord.y == 20

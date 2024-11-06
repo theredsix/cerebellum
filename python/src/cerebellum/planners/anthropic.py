@@ -34,16 +34,17 @@ from cerebellum.browser import (
     ActionPlanner,
     BrowserStep,
 )
+import json
 
 
-@dataclass
+@dataclass(frozen=True)
 class ScalingRatio:
     ratio: Coordinate
     old_size: Coordinate
     new_size: Coordinate
 
 
-@dataclass
+@dataclass(frozen=False)
 class MsgOptions:
     mouse_position: bool
     screenshot: bool
@@ -55,7 +56,7 @@ CURSOR_64 = "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAQCAYAAAAvf+5AAAAAw3pUWHRSYXcgcHJvZml
 CURSOR_BYTES = base64.b64decode(CURSOR_64)
 
 
-@dataclass
+@dataclass(frozen=True)
 class AnthropicPlannerOptions:
     """Configuration options for the Anthropic planner.
 
@@ -231,7 +232,10 @@ class AnthropicPlanner(ActionPlanner):
             cursor_img = Image.open(io.BytesIO(CURSOR_BYTES))
             composite.paste(
                 cursor_img,
-                (max(0, mouse_position.x), max(0, mouse_position.y)),
+                (
+                    max(0, mouse_position.x - cursor_img.width // 2),
+                    max(0, mouse_position.y - cursor_img.height // 2),
+                ),
                 cursor_img,
             )
 
@@ -302,7 +306,7 @@ class AnthropicPlanner(ActionPlanner):
 
         return ScalingRatio(
             ratio=Coordinate(x=int(width_ratio), y=int(height_ratio)),
-            old_size=Coordinate(x=orig_size.x, y=orig_size.y),
+            old_size=orig_size,
             new_size=Coordinate(x=floor(new_width), y=floor(new_height)),
         )
 
@@ -541,7 +545,7 @@ class AnthropicPlanner(ActionPlanner):
                 action="failure",
                 reasoning=reasoning,
                 text="Invalid message type",
-                coordinate=(0, 0),
+                coordinate=None,
                 id=self.create_tool_use_id(),
             )
 
@@ -558,7 +562,7 @@ class AnthropicPlanner(ActionPlanner):
             return BrowserAction(
                 action="success",
                 reasoning=reasoning,
-                text=input_data.get("error", "Unknown error"),
+                text=None,  # Don't pass error message on success
                 coordinate=None,
                 id=last_message.id,
             )
@@ -589,6 +593,7 @@ class AnthropicPlanner(ActionPlanner):
                     )
 
                 if action == "key":
+                    # Handle special key mappings from utils.parse_xdotool
                     text_lower = text.lower().strip()
                     if text_lower in ("page_down", "pagedown"):
                         return BrowserAction(
@@ -629,6 +634,7 @@ class AnthropicPlanner(ActionPlanner):
                     Coordinate(x=coordinate[0], y=coordinate[1]), scaling
                 )
 
+                # Handle mouse jitter reduction for mouse_move
                 if action == "mouse_move":
                     x_jitter = abs(browser_coordinates.x - current_state.mouse.x)
                     y_jitter = abs(browser_coordinates.y - current_state.mouse.y)
@@ -648,7 +654,7 @@ class AnthropicPlanner(ActionPlanner):
                 return BrowserAction(
                     action=action,
                     reasoning=reasoning,
-                    coordinate=(browser_coordinates.x, browser_coordinates.y),
+                    coordinate=browser_coordinates,
                     text=None,
                     id=last_message.id,
                 )
@@ -759,6 +765,6 @@ class AnthropicPlanner(ActionPlanner):
         )
 
         action = self.parse_action(response, scaling, current_state)
-        print(action)
+        # print(action)
 
         return action

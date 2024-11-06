@@ -9,7 +9,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Literal, Any
 
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
@@ -36,7 +36,7 @@ class BrowserGoalState(StrEnum):
     FAILED = "failed"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Coordinate:
     """X & Y coordinates for mouse position or element location."""
 
@@ -44,7 +44,7 @@ class Coordinate:
     y: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class ScrollBar:
     """Browser's scrollbar state."""
 
@@ -52,7 +52,7 @@ class ScrollBar:
     height: float
 
 
-@dataclass
+@dataclass(frozen=True)
 class BrowserState:
     """Comprehensive capture of browser state"""
 
@@ -64,7 +64,7 @@ class BrowserState:
     mouse: Coordinate
 
 
-@dataclass
+@dataclass(frozen=True)
 class BrowserAction:
     """An action to be performed on the browser."""
 
@@ -84,14 +84,13 @@ class BrowserAction:
         "scroll_up",
         "scroll_down",
     ]
-    # TODO: Do we want to use Coordinate class here, or easier to just construct with tuple
-    coordinate: tuple[int, int] | None
+    coordinate: Coordinate | None
     text: str | None
     reasoning: str
     id: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class BrowserStep:
     """Single step for browser automation procedure."""
 
@@ -126,7 +125,7 @@ class ActionPlanner(ABC):
         pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class BrowserAgentOptions:
     """Wrapper for BrowserAgent additional configuration options."""
 
@@ -283,8 +282,8 @@ class BrowserAgent:
                     raise ValueError("Coordinate is required for mouse_move action")
                 actions.move_to_element_with_offset(
                     self.driver.find_element(By.TAG_NAME, "body"),
-                    action.coordinate[0],
-                    action.coordinate[1],
+                    action.coordinate.x,
+                    action.coordinate.y,
                 ).perform()
 
             case "left_click":
@@ -296,7 +295,7 @@ class BrowserAgent:
                         "Coordinate is required for left_click_drag action"
                     )
                 actions.click_and_hold().move_by_offset(
-                    action.coordinate[0], action.coordinate[1]
+                    action.coordinate.x, action.coordinate.y
                 ).release().perform()
 
             case "right_click":
@@ -343,7 +342,7 @@ class BrowserAgent:
 
         self.history.append(BrowserStep(state=current_state, action=next_action))
 
-    async def start(self) -> None:
+    def start(self) -> None:
         """Start the browser automation process."""
         # Initialize mouse inside viewport
         actions = ActionChains(self.driver)
