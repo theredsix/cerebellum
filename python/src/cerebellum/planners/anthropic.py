@@ -11,7 +11,7 @@ Typical usage example:
                                current_state=browser_state)
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import cast
 from anthropic import Anthropic
 from anthropic.types.beta import (
@@ -34,7 +34,6 @@ from cerebellum.browser import (
     ActionPlanner,
     BrowserStep,
 )
-import json
 
 
 @dataclass(frozen=True)
@@ -215,11 +214,13 @@ class AnthropicPlanner(ActionPlanner):
             width, height = img.size
 
             # Create scrollbar overlay
-            scrollbar_width = 10
+            scrollbar_width = 10  # Matches TypeScript implementation
             scrollbar_height = int(height * scrollbar.height)
             scrollbar_top = int(height * scrollbar.offset)
 
             # Create gray rectangle for scrollbar
+            # Using same RGBA values as TypeScript: rgba(128, 128, 128, 0.7)
+            # 0.7 opacity = 179 in 8-bit alpha (0.7 * 255 ≈ 179)
             scrollbar_img = Image.new(
                 "RGBA", (scrollbar_width, scrollbar_height), (128, 128, 128, 179)
             )
@@ -229,7 +230,12 @@ class AnthropicPlanner(ActionPlanner):
             composite.paste(scrollbar_img, (width - scrollbar_width, scrollbar_top))
 
             # Add cursor
+            # Using same cursor image as TypeScript (decoded from cursor64 constant)
             cursor_img = Image.open(io.BytesIO(CURSOR_BYTES))
+
+            # Cursor positioning matches TypeScript:
+            # - Centers cursor on mouse position
+            # - Prevents cursor from going off-screen with max(0, ...)
             composite.paste(
                 cursor_img,
                 (
@@ -491,7 +497,7 @@ class AnthropicPlanner(ActionPlanner):
                         "type": "tool_use",
                         "id": tool_id,
                         "name": "computer",
-                        "input": past_step.action,
+                        "input": asdict(past_step.action),
                     }
                 ],
             }
@@ -765,6 +771,6 @@ class AnthropicPlanner(ActionPlanner):
         )
 
         action = self.parse_action(response, scaling, current_state)
-        # print(action)
+        print(action)
 
         return action
