@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "training"
+version = "0.1.0"
+description = ""
+authors = ["Han Wang <han.wang.2718@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+datasets = "^3.1.0"
+ipykernel = "^6.29.5"
+jupyter = "^1.1.1"
+ipywidgets = "^8.1.5"
+pillow = "^11.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
