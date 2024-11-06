@@ -15,7 +15,7 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .utils import parse_xdotool, pause_for_input
+from cerebellum.utils import parse_xdotool, pause_for_input
 
 
 class BrowserGoalState(StrEnum):
