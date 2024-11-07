@@ -10,6 +10,9 @@ assignees: ''
 **Describe the bug**
 A clear and concise description of what the bug is.
 
+**Selenium Driver Configuration**
+Please include the code used to configure your Selenium Webdriver along with all configured options.
+
 **To Reproduce**
 Steps to reproduce the behavior:
 1. Go to '...'
