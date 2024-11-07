@@ -14,11 +14,7 @@ A clear and concise description of what the bug is.
 Please include the code used to configure your Selenium Webdriver along with all configured options.
 
 **To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+Please include the source files referenced in the stack trace and the intial entry file which caused the bug.
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
