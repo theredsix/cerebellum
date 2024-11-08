@@ -264,9 +264,6 @@ class BrowserAgent:
 
     def take_action(self, action: BrowserAction, last_state: BrowserState) -> None:
         """Execute the specified browser action."""
-        # mouse = PointerInput(PointerInput.Kind.MOUSE, "mouse")
-        # keyboard = KeyInput("keyboard")
-        # action_builder = ActionBuilder(self.driver, mouse=mouse, keyboard=keyboard)
         action_builder = ActionBuilder(self.driver)
 
         match action.action:
