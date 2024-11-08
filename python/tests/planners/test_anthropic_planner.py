@@ -7,6 +7,7 @@ from cerebellum.planners.anthropic import (
     BrowserState,
     Coordinate,
     ScrollBar,
+    ScalingRatio,
 )
 
 
@@ -43,22 +44,6 @@ def test_init_with_custom_options():
     assert planner.debug_image_path == "/tmp/debug.png"
 
 
-def test_get_dimensions(planner):
-    # Create a small test image and encode it
-    from PIL import Image
-    import io
-    import base64
-
-    img = Image.new("RGB", (100, 50), color="red")
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    b64_img = base64.b64encode(buf.getvalue()).decode()
-
-    dimensions = planner.get_dimensions(b64_img)
-    assert dimensions.x == 100
-    assert dimensions.y == 50
-
-
 def test_create_tool_use_id(planner):
     tool_id = planner.create_tool_use_id()
     assert tool_id.startswith("toolu_01")
@@ -66,7 +51,10 @@ def test_create_tool_use_id(planner):
 
 
 def test_browser_to_llm_coordinates(planner):
-    scaling = Mock(ratio=Coordinate(x=2, y=2), new_size=Coordinate(x=100, y=100))
+    scaling = Mock()
+    scaling.ratio_x = 2  # Set ratio_x to return 2
+    scaling.ratio_y = 2  # Set ratio_y to return 2
+    scaling.new_size = Coordinate(x=100, y=100)
 
     result = planner.browser_to_llm_coordinates(Coordinate(x=200, y=200), scaling)
 
@@ -75,7 +63,10 @@ def test_browser_to_llm_coordinates(planner):
 
 
 def test_llm_to_browser_coordinates(planner):
-    scaling = Mock(ratio=Coordinate(x=2, y=2), old_size=Coordinate(x=200, y=200))
+    scaling = Mock()
+    scaling.ratio_x = 2  # Set ratio_x to return 2
+    scaling.ratio_y = 2  # Set ratio_y to return 2
+    scaling.old_size = Coordinate(x=200, y=200)
 
     result = planner.llm_to_browser_coordinates(Coordinate(x=50, y=50), scaling)
 

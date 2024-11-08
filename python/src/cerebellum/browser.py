@@ -14,6 +14,9 @@ from typing import Literal, Any
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
+from selenium.webdriver.common.actions.key_input import KeyInput
 
 from cerebellum.utils import parse_xdotool, pause_for_input
 
@@ -42,6 +45,14 @@ class Coordinate:
 
     x: int
     y: int
+
+
+@dataclass(frozen=True)
+class BrowserViewportDimensions:
+    """Dimensions for browser viewport or image size in pixels."""
+
+    width: int
+    height: int
 
 
 @dataclass(frozen=True)
@@ -185,7 +196,7 @@ class BrowserAgent:
 
     def get_state(self) -> BrowserState:
         """Get current browser state."""
-        size = self.driver.execute_script(
+        viewport = self.driver.execute_script(
             "return { x: window.innerWidth, y: window.innerHeight }"
         )
         screenshot = self.driver.get_screenshot_as_base64()
@@ -196,8 +207,8 @@ class BrowserAgent:
 
         return BrowserState(
             screenshot=screenshot,
-            height=size["y"],
-            width=size["x"],
+            height=viewport["y"],
+            width=viewport["x"],
             scrollbar=scroll_position,
             url=url,
             mouse=mouse_position,
@@ -253,7 +264,10 @@ class BrowserAgent:
 
     def take_action(self, action: BrowserAction, last_state: BrowserState) -> None:
         """Execute the specified browser action."""
-        actions = ActionChains(self.driver)
+        # mouse = PointerInput(PointerInput.Kind.MOUSE, "mouse")
+        # keyboard = KeyInput("keyboard")
+        # action_builder = ActionBuilder(self.driver, mouse=mouse, keyboard=keyboard)
+        action_builder = ActionBuilder(self.driver)
 
         match action.action:
             case "key":
@@ -261,65 +275,68 @@ class BrowserAgent:
                     raise ValueError("Text is required for key action")
 
                 key_strokes = parse_xdotool(action.text)
-                chain = actions
 
                 for modifier in key_strokes.modifiers:
-                    chain = chain.key_down(modifier)
+                    action_builder.key_action.key_down(modifier)
                 for key in key_strokes.keys:
-                    chain = chain.send_keys(key)
+                    action_builder.key_action.send_keys(key)
                 for modifier in reversed(key_strokes.modifiers):
-                    chain = chain.key_up(modifier)
+                    action_builder.key_action.key_up(modifier)
 
-                chain.perform()
+                action_builder.perform()
 
             case "type":
                 if not action.text:
                     raise ValueError("Text is required for type action")
-                actions.send_keys(action.text).perform()
+                action_builder.key_action.send_keys(action.text)
+                action_builder.perform()
 
             case "mouse_move":
                 if not action.coordinate:
                     raise ValueError("Coordinate is required for mouse_move action")
-                actions.move_to_element_with_offset(
-                    self.driver.find_element(By.TAG_NAME, "body"),
-                    action.coordinate.x,
-                    action.coordinate.y,
-                ).perform()
+                action_builder.pointer_action.move_to_location(
+                    action.coordinate.x, action.coordinate.y
+                )
+                action_builder.perform()
 
             case "left_click":
-                actions.click().perform()
+                action_builder.pointer_action.click()
+                action_builder.perform()
 
             case "left_click_drag":
                 if not action.coordinate:
                     raise ValueError(
                         "Coordinate is required for left_click_drag action"
                     )
-                actions.click_and_hold().move_by_offset(
+                action_builder.pointer_action.click_and_hold()
+                action_builder.pointer_action.move_by(
                     action.coordinate.x, action.coordinate.y
-                ).release().perform()
+                )
+                action_builder.pointer_action.release()
+                action_builder.perform()
 
             case "right_click":
-                actions.context_click().perform()
+                action_builder.pointer_action.context_click()
+                action_builder.perform()
 
             case "middle_click":
                 print("Middle mouse click not supported")
 
             case "double_click":
-                actions.double_click().perform()
+                action_builder.pointer_action.double_click()
+                action_builder.perform()
 
             case "screenshot" | "cursor_position":
                 # These are handled automatically
                 pass
 
             case "scroll_down":
-                self.driver.execute_script(
-                    f"window.scrollBy(0, {last_state.height / 2})"
-                )
+                action_builder.wheel_action.scroll(0, int(last_state.height / 2))
+                action_builder.perform()
 
             case "scroll_up":
-                self.driver.execute_script(
-                    f"window.scrollBy(0, -{last_state.height / 2})"
-                )
+                action_builder.wheel_action.scroll(0, int(-last_state.height / 2))
+                action_builder.perform()
 
             case _:
                 raise ValueError(f"Unsupported action: {action.action}")

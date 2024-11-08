@@ -11,34 +11,36 @@ Typical usage example:
                                current_state=browser_state)
 """
 
-from dataclasses import dataclass, asdict
-from typing import cast
-from anthropic import Anthropic
-from anthropic.types.beta import (
-    BetaMessage,
-    BetaMessageParam,
-    BetaTextBlockParam,
-    BetaImageBlockParam,
-)
 import base64
 import io
 import random
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from PIL import Image
 from math import floor
+from typing import cast
+
+from anthropic import Anthropic
+from anthropic.types.beta import (
+    BetaImageBlockParam,
+    BetaMessage,
+    BetaMessageParam,
+    BetaTextBlockParam,
+)
 from cerebellum.browser import (
+    ActionPlanner,
     BrowserAction,
     BrowserState,
+    BrowserStep,
     Coordinate,
     ScrollBar,
-    ActionPlanner,
-    BrowserStep,
 )
+from PIL import Image
 
 
 @dataclass(frozen=True)
 class ScalingRatio:
-    ratio: Coordinate
+    ratio_x: float
+    ratio_y: float
     old_size: Coordinate
     new_size: Coordinate
 
@@ -143,23 +145,25 @@ class AnthropicPlanner(ActionPlanner):
         instructions = "\n".join(
             f"* {instruction}" for instruction in additional_instructions
         )
-        prompt = f"""<SYSTEM_CAPABILITY>
-            * You are a computer use tool that is controlling a browser in fullscreen mode to complete a goal for the user. The goal is listed below in <USER_TASK>.
-            * Since the browser is in fullscreen mode, you do not have access to browser UI elements such as STOP, REFRESH, BACK or the address bar. You will need to complete your task purely by interacting with the webside's UI.
-            * When viewing a page it can be helpful to zoom out so that you can see everything on the page. Either that, or make sure you scroll down to see everything before deciding something isn't available.
-            * ONLY use the Page_down or Page_up keys to scroll.
-            * If the website is scrollable, a scrollbar that is shaped like a gray rectangle will be visible on the right edge of the screenshot.
-            * The current date is {datetime.now()}.
-            * Follow all directions from the <IMPORTANT> section below. 
-            </SYSTEM_CAPABILITY>
+        prompt = f"""
+        <SYSTEM_CAPABILITY>
+        * You are a computer use tool that is controlling a browser in fullscreen mode to complete a goal for the user. The goal is listed below in <USER_TASK>.
+        * Since the browser is in fullscreen mode, you do not have access to browser UI elements such as STOP, REFRESH, BACK or the address bar. You will need to complete your task purely by interacting with the webside's UI.
+        * When viewing a page it can be helpful to zoom out so that you can see everything on the page. Either that, or make sure you scroll down to see everything before deciding something isn't available.
+        * ONLY use the Page_down or Page_up keys to scroll.
+        * If the website is scrollable, a scrollbar that is shaped like a gray rectangle will be visible on the right edge of the screenshot.
+        * The current date is {datetime.now()}.
+        * Follow all directions from the <IMPORTANT> section below. 
+        </SYSTEM_CAPABILITY>
 
-            The user will ask you to perform a task and you should use their browser to do so. After each step, take a screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.
+        The user will ask you to perform a task and you should use their browser to do so. After each step, take a screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.
 
-            <IMPORTANT>
-            * You will use information provided in user's <USER DATA> to fill out forms on the way to your goal.
-            * Always scroll a UI element fully into view before interacting with it.
-            {instructions}
-            </IMPORTANT>"""
+        <IMPORTANT>
+        * You will use information provided in user's <USER DATA> to fill out forms on the way to your goal.
+        * Always scroll a UI element fully into view before interacting with it.
+        * {instructions}
+        </IMPORTANT>"""
+
         return prompt.strip()
 
     def create_tool_use_id(self) -> str:
@@ -179,20 +183,6 @@ class AnthropicPlanner(ActionPlanner):
             result += random.choice(characters)
 
         return result
-
-    def get_dimensions(self, screenshot: str) -> Coordinate:
-        """Gets the dimensions of a base64 encoded screenshot.
-
-        Args:
-            screenshot: Base64 encoded screenshot image
-
-        Returns:
-            Coordinate object containing width and height dimensions
-        """
-        img_buffer = base64.b64decode(screenshot)
-        with Image.open(io.BytesIO(img_buffer)) as img:
-            width, height = img.size
-            return Coordinate(x=width, y=height)
 
     def mark_screenshot(
         self, img_buffer: bytes, mouse_position: Coordinate, scrollbar: ScrollBar
@@ -214,12 +204,11 @@ class AnthropicPlanner(ActionPlanner):
             width, height = img.size
 
             # Create scrollbar overlay
-            scrollbar_width = 10  # Matches TypeScript implementation
+            scrollbar_width = 10
             scrollbar_height = int(height * scrollbar.height)
             scrollbar_top = int(height * scrollbar.offset)
 
             # Create gray rectangle for scrollbar
-            # Using same RGBA values as TypeScript: rgba(128, 128, 128, 0.7)
             # 0.7 opacity = 179 in 8-bit alpha (0.7 * 255 ≈ 179)
             scrollbar_img = Image.new(
                 "RGBA", (scrollbar_width, scrollbar_height), (128, 128, 128, 179)
@@ -230,12 +219,7 @@ class AnthropicPlanner(ActionPlanner):
             composite.paste(scrollbar_img, (width - scrollbar_width, scrollbar_top))
 
             # Add cursor
-            # Using same cursor image as TypeScript (decoded from cursor64 constant)
             cursor_img = Image.open(io.BytesIO(CURSOR_BYTES))
-
-            # Cursor positioning matches TypeScript:
-            # - Centers cursor on mouse position
-            # - Prevents cursor from going off-screen with max(0, ...)
             composite.paste(
                 cursor_img,
                 (
@@ -251,7 +235,7 @@ class AnthropicPlanner(ActionPlanner):
             return output_buffer.getvalue()
 
     def resize_screenshot(self, screenshot_buffer: bytes) -> bytes:
-        """Resizes a screenshot to standard dimensions.
+        """Resizes a screenshot to standard dimensions while maintaining aspect ratio.
 
         Args:
             screenshot_buffer: Raw bytes of the screenshot image
@@ -263,15 +247,20 @@ class AnthropicPlanner(ActionPlanner):
             IOError: If there are issues manipulating the image
         """
         with Image.open(io.BytesIO(screenshot_buffer)) as img:
-            resized = img.resize((1280, 800), Image.Resampling.LANCZOS)
+            target_width = 1280
+            target_height = 800
+
+            # Calculate dimensions that fit within target while maintaining aspect ratio
+            img.thumbnail((target_width, target_height), Image.Resampling.LANCZOS)
+
             output_buffer = io.BytesIO()
-            resized.save(output_buffer, format="PNG")
+            img.save(output_buffer, format="PNG")
             return output_buffer.getvalue()
 
     def resize_image_to_dimensions(
         self, screenshot_buffer: bytes, new_dim: Coordinate
     ) -> bytes:
-        """Resizes an image to specified dimensions.
+        """Resizes an image to specified dimensions. Ignores aspect ratio.
 
         Args:
             screenshot_buffer: Raw bytes of the screenshot image
@@ -292,6 +281,12 @@ class AnthropicPlanner(ActionPlanner):
     def get_scaling_ratio(self, orig_size: Coordinate) -> ScalingRatio:
         """Calculates scaling ratios to standardize image dimensions.
 
+        This function calculates the scaling ratio to standardize the image dimensions to
+        1280x800 while maintaining the aspect ratio. The ratio is original size / new size.
+        To get the new size from the ratio, multiply the original size by the inverse of
+        the ratio, or simply divide the original size by the ratio. To go from the new size
+        back to the original size, multiply the new size by the ratio.
+
         Args:
             orig_size: Coordinate object containing original width and height
 
@@ -302,18 +297,19 @@ class AnthropicPlanner(ActionPlanner):
 
         if aspect_ratio > 1280 / 800:
             new_width = 1280
-            new_height = round(1280 / aspect_ratio)
+            new_height = floor(1280 / aspect_ratio)
         else:
             new_height = 800
-            new_width = round(800 * aspect_ratio)
+            new_width = floor(800 * aspect_ratio)
 
         width_ratio = orig_size.x / new_width
         height_ratio = orig_size.y / new_height
 
         return ScalingRatio(
-            ratio=Coordinate(x=int(width_ratio), y=int(height_ratio)),
+            ratio_x=width_ratio,
+            ratio_y=height_ratio,
             old_size=orig_size,
-            new_size=Coordinate(x=floor(new_width), y=floor(new_height)),
+            new_size=Coordinate(x=new_width, y=new_height),
         )
 
     def browser_to_llm_coordinates(
@@ -329,8 +325,8 @@ class AnthropicPlanner(ActionPlanner):
             Coordinate object containing scaled coordinates
         """
         return Coordinate(
-            x=min(max(floor(input_coords.x / scaling.ratio.x), 1), scaling.new_size.x),
-            y=min(max(floor(input_coords.y / scaling.ratio.y), 1), scaling.new_size.y),
+            x=min(max(floor(input_coords.x / scaling.ratio_x), 1), scaling.new_size.x),
+            y=min(max(floor(input_coords.y / scaling.ratio_y), 1), scaling.new_size.y),
         )
 
     def llm_to_browser_coordinates(
@@ -346,8 +342,8 @@ class AnthropicPlanner(ActionPlanner):
             Coordinate object containing browser coordinates
         """
         return Coordinate(
-            x=min(max(floor(input_coords.x * scaling.ratio.x), 1), scaling.old_size.x),
-            y=min(max(floor(input_coords.y * scaling.ratio.y), 1), scaling.old_size.y),
+            x=min(max(floor(input_coords.x * scaling.ratio_x), 1), scaling.old_size.x),
+            y=min(max(floor(input_coords.y * scaling.ratio_y), 1), scaling.old_size.y),
         )
 
     def format_state_into_msg(
@@ -365,9 +361,6 @@ class AnthropicPlanner(ActionPlanner):
 
         Returns:
             A formatted message object compatible with Anthropic's API
-
-        Raises:
-            None
         """
         result_text = ""
         content_sub_msg: list[BetaTextBlockParam | BetaImageBlockParam] = []
@@ -394,7 +387,7 @@ class AnthropicPlanner(ActionPlanner):
 
             if self.debug_image_path:
                 with open(self.debug_image_path, "wb") as f:
-                    f.write(base64.b64encode(resized))
+                    f.write(resized)
 
             content_sub_msg.append(
                 {
@@ -407,7 +400,7 @@ class AnthropicPlanner(ActionPlanner):
                 }
             )
 
-        if not result_text:
+        if not result_text:  # Put a generic text explanation for no URL or result
             result_text = "Action was performed."
 
         content_sub_msg.insert(0, {"type": "text", "text": result_text.strip()})
@@ -451,14 +444,14 @@ class AnthropicPlanner(ActionPlanner):
         tool_id = self.create_tool_use_id()
 
         user_prompt = f"""Please complete the following task:
-        <USER_TASK>
-        {goal}
-        </USER_TASK>
+<USER_TASK>
+{goal}
+</USER_TASK>
 
-        Using the supporting contextual data:
-        <USER_DATA>
-        {additional_context}
-        </USER_DATA>"""
+Using the supporting contextual data:
+<USER_DATA>
+{additional_context}
+</USER_DATA>"""
 
         msg0: BetaMessageParam = {
             "role": "user",
@@ -484,12 +477,14 @@ class AnthropicPlanner(ActionPlanner):
             options = MsgOptions(mouse_position=False, screenshot=False, url=True)
 
             if past_step_idx <= (len(session_history) - self.screenshot_history):
-                options.url = True
+                options.url = True  # Matches TypeScript: options.url = true
 
             result_msg = self.format_state_into_msg(tool_id, past_step.state, options)
             messages.append(result_msg)
 
+            # Update tool ID for next action
             tool_id = past_step.action.id or self.create_tool_use_id()
+
             action_msg: BetaMessageParam = {
                 "role": "assistant",
                 "content": [
@@ -568,7 +563,7 @@ class AnthropicPlanner(ActionPlanner):
             return BrowserAction(
                 action="success",
                 reasoning=reasoning,
-                text=None,  # Don't pass error message on success
+                text=None,
                 coordinate=None,
                 id=last_message.id,
             )
@@ -586,6 +581,10 @@ class AnthropicPlanner(ActionPlanner):
         action = input_data.get("action", "")
         coordinate = input_data.get("coordinate")
         text = input_data.get("text")
+
+        print(
+            f"Action: {action}, Coordinate: {coordinate}, Text: {text}, scaling: {scaling}"
+        )
 
         match action:
             case "key" | "type":
@@ -626,7 +625,7 @@ class AnthropicPlanner(ActionPlanner):
                     id=last_message.id,
                 )
 
-            case "mouse_move" | "left_click_drag":
+            case "mouse_move":
                 if not coordinate:
                     return BrowserAction(
                         action="failure",
@@ -640,22 +639,45 @@ class AnthropicPlanner(ActionPlanner):
                     Coordinate(x=coordinate[0], y=coordinate[1]), scaling
                 )
 
-                # Handle mouse jitter reduction for mouse_move
-                if action == "mouse_move":
-                    x_jitter = abs(browser_coordinates.x - current_state.mouse.x)
-                    y_jitter = abs(browser_coordinates.y - current_state.mouse.y)
-                    if (
-                        x_jitter <= self.mouse_jitter_reduction
-                        and y_jitter <= self.mouse_jitter_reduction
-                    ):
-                        print("Mouse jitter detected, overriding with click")
-                        return BrowserAction(
-                            action="left_click",
-                            reasoning=reasoning,
-                            coordinate=None,
-                            text=None,
-                            id=last_message.id,
-                        )
+                # Calculate the distance moved
+                distance_moved = (
+                    (browser_coordinates.x - current_state.mouse.x) ** 2
+                    + (browser_coordinates.y - current_state.mouse.y) ** 2
+                ) ** 0.5
+                print(f"Distance moved: {distance_moved}")
+
+                # Check if the movement is within a minimal threshold to consider as jitter
+                if distance_moved <= self.mouse_jitter_reduction:
+                    print("Minimal mouse movement detected, considering as jitter.")
+                    return BrowserAction(
+                        action="left_click",
+                        reasoning=reasoning,
+                        coordinate=None,
+                        text=None,
+                        id=last_message.id,
+                    )
+
+                return BrowserAction(
+                    action=action,
+                    reasoning=reasoning,
+                    coordinate=browser_coordinates,
+                    text=None,
+                    id=last_message.id,
+                )
+
+            case "left_click_drag":
+                if not coordinate:
+                    return BrowserAction(
+                        action="failure",
+                        reasoning=reasoning,
+                        text="No coordinate provided",
+                        coordinate=None,
+                        id=last_message.id,
+                    )
+
+                browser_coordinates = self.llm_to_browser_coordinates(
+                    Coordinate(x=coordinate[0], y=coordinate[1]), scaling
+                )
 
                 return BrowserAction(
                     action=action,
