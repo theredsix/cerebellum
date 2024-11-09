@@ -22,12 +22,10 @@ def main():
                 "Do not add to cart directly from search results, click the item text to open item details and then add to cart."
             ]
         )
-
         # Create the Cerebellum browser agent
         planner = AnthropicPlanner()
 
         agent = BrowserAgent(driver, planner, goal, options)
-
         pause_for_input()
 
         # Have Cerebellum takeover website navigation

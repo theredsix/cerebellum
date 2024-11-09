@@ -749,7 +749,7 @@ Using the supporting contextual data:
         response = self.client.beta.messages.create(
             model="claude-3-5-sonnet-20241022",
             system=system_prompt,
-            max_tokens=2048,
+            max_tokens=1024,
             tools=[
                 {
                     "type": "computer_20241022",
