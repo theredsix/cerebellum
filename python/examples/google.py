@@ -1,5 +1,5 @@
 from selenium import webdriver
-from cerebellum.planners.anthropic import AnthropicPlanner, AnthropicPlannerOptions
+from cerebellum.planners.anthropic import AnthropicPlanner
 from cerebellum.browser import BrowserAgent, BrowserAgentOptions
 from cerebellum.utils import pause_for_input
 
@@ -14,20 +14,14 @@ def main():
         # Define your goal
         goal = "Show me the wikipedia page of the creator of Bitcoin"
 
-        # Configuration options for the planner with debug screenshot enabled
-        planner_options = AnthropicPlannerOptions(debug_image_path="llmView.png")
+        # Create the Cerebellum browser agent
+        planner = AnthropicPlanner()
 
-        # Create the Cerebellum browser agent with the configured options
-        planner = AnthropicPlanner(planner_options)
-
-        # Browser agent options enabling step-by-step pause
-        options = BrowserAgentOptions(
-            pause_after_each_action=True  # Enable pausing after each action for manual review
-        )
+        options = BrowserAgentOptions(pause_after_each_action=True)
 
         agent = BrowserAgent(driver, planner, goal, options)
 
-        # Start the automated navigation with pauses at each step
+        # Have Cerebellum takeover website navigation
         agent.start()
 
         # Goal has now been reached, you may interact with the Selenium driver any way you want

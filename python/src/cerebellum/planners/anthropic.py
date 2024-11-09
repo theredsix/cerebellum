@@ -151,7 +151,9 @@ class AnthropicPlanner(ActionPlanner):
         * Since the browser is in fullscreen mode, you do not have access to browser UI elements such as STOP, REFRESH, BACK or the address bar. You will need to complete your task purely by interacting with the webside's UI.
         * When viewing a page it can be helpful to zoom out so that you can see everything on the page. Either that, or make sure you scroll down to see everything before deciding something isn't available.
         * ONLY use the Page_down or Page_up keys to scroll.
+        * When you are ready to interact with an element, like text or a button, you should use the left_click tool.
         * If the website is scrollable, a scrollbar that is shaped like a gray rectangle will be visible on the right edge of the screenshot.
+        * Remember to always provide tool use input values in the format that was defined for each tool.
         * The current date is {datetime.now()}.
         * Follow all directions from the <IMPORTANT> section below. 
         </SYSTEM_CAPABILITY>
@@ -582,10 +584,6 @@ Using the supporting contextual data:
         coordinate = input_data.get("coordinate")
         text = input_data.get("text")
 
-        print(
-            f"Action: {action}, Coordinate: {coordinate}, Text: {text}, scaling: {scaling}"
-        )
-
         match action:
             case "key" | "type":
                 if not text:
@@ -751,7 +749,7 @@ Using the supporting contextual data:
         response = self.client.beta.messages.create(
             model="claude-3-5-sonnet-20241022",
             system=system_prompt,
-            max_tokens=1024,
+            max_tokens=2048,
             tools=[
                 {
                     "type": "computer_20241022",

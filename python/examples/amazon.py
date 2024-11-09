@@ -1,5 +1,5 @@
 from selenium import webdriver
-from cerebellum.planners.anthropic import AnthropicPlanner, AnthropicPlannerOptions
+from cerebellum.planners.anthropic import AnthropicPlanner
 from cerebellum.browser import BrowserAgent, BrowserAgentOptions
 from cerebellum.utils import pause_for_input
 
@@ -17,26 +17,20 @@ def main():
         # Define your goal
         goal = "Find a USB C to C cable that is 10 feet long and add it to cart"
 
-        # Browser agent options with additional instructions and enabling step-by-step pause
         options = BrowserAgentOptions(
             additional_instructions=[
-                "Do not add to cart directly from search results, click the item text to open item details and then add it to cart."
-            ],
-            pause_after_each_action=True,  # Enable pausing after each action for manual review
+                "Do not add to cart directly from search results, click the item text to open item details and then add to cart."
+            ]
         )
 
-        # Configuration options for the planner with debug and screenshot history enabled
-        planner_options = AnthropicPlannerOptions(
-            debug_image_path="test.jpg",
-            screenshot_history=5,  # Assuming a history of 5 screenshots is sufficient for debugging
-        )
-
-        # Create the Cerebellum browser agent with the configured options
-        planner = AnthropicPlanner(planner_options)
+        # Create the Cerebellum browser agent
+        planner = AnthropicPlanner()
 
         agent = BrowserAgent(driver, planner, goal, options)
 
-        # Start the automated navigation with pauses at each step
+        pause_for_input()
+
+        # Have Cerebellum takeover website navigation
         agent.start()
 
         # Goal has now been reached, you may interact with the Selenium driver any way you want
