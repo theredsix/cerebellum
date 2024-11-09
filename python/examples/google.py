@@ -20,7 +20,9 @@ def main():
         options = BrowserAgentOptions(pause_after_each_action=True)
 
         agent = BrowserAgent(driver, planner, goal, options)
+        agent.pause_after_each_action = False
 
+        pause_for_input()
         # Have Cerebellum takeover website navigation
         agent.start()
 

@@ -632,6 +632,14 @@ Using the supporting contextual data:
                         coordinate=None,
                         id=last_message.id,
                     )
+                if isinstance(coordinate, str):
+                    return BrowserAction(
+                        action="failure",
+                        reasoning=reasoning,
+                        text="Coordinate is a string, not array of integers.",
+                        coordinate=None,
+                        id=last_message.id,
+                    )
 
                 browser_coordinates = self.llm_to_browser_coordinates(
                     Coordinate(x=coordinate[0], y=coordinate[1]), scaling
