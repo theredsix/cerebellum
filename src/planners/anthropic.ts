@@ -105,10 +105,15 @@ ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
         const originalMeta = await sharpImage.metadata();
         const width = originalMeta.width!;
         const height = originalMeta.height!;
+
+        // Set minimum size for image marking, otherwise return the original image
+        if(width < 20 || height < 20){
+            return imgBuffer;
+        }
         
         // Create scrollbar overlay
-        const scrollbarWidth = 10;
-        const scrollbarHeight = Math.floor(height * scrollbar.height);
+        const scrollbarWidth = Math.min(10, width);
+        const scrollbarHeight = Math.min(Math.floor(height * scrollbar.height), height);
         const scrollbarTop = Math.floor(height * scrollbar.offset);
 
         // Create a gray rectangle for the scrollbar
