@@ -6,7 +6,7 @@ This is a Python port of the TypeScript implementation of Cerebellum, a lightwei
 
 Goal: `Show me the wikipedia page of the creator of Bitcoin`
 
-<video src="etc/screencast/python_bitcoin.mp4" controls></video>
+<video src="python/etc/screencast/python_bitcoin.mp4" controls></video>
 
 ## Setup
 
