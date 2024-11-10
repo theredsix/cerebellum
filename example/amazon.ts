@@ -14,7 +14,7 @@ import { AnthropicPlanner, BrowserAgentOptions, BrowserAgent, pauseForInput } fr
     await pauseForInput();
     
     // Define your goal
-    const goal = 'Find a USB C to C cable that is 10 feet long and add it to cart';
+    const goal = 'Find a USB C to C cable that is 10 feet long and add it to cart.';
 
     const options: BrowserAgentOptions = {
       additionalInstructions: [
@@ -23,7 +23,10 @@ import { AnthropicPlanner, BrowserAgentOptions, BrowserAgent, pauseForInput } fr
     }
     
     // Create the Cerebellum browser agent
-    const planner = new AnthropicPlanner({ apiKey: process.env.ANTHROPIC_API_KEY as string});
+    const planner = new AnthropicPlanner({ 
+      apiKey: process.env.ANTHROPIC_API_KEY as string,
+      mouseJitterReduction: 10,
+    });
 
     const agent = new BrowserAgent(driver, planner, goal, options);
 

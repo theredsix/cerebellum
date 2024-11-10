@@ -155,10 +155,10 @@ The `BrowserAgentOptions` interface provides several configuration options to cu
 - [x] Integrate Claude 3.5 Sonnet as a `ActionPlanner`
 - [x] Demonstrate successful `BrowserAgent` across a variety of tasks
 - [ ] Create Python SDK
-- [ ] Improve vertical scrolling behavior
+- [x] Improve vertical scrolling behavior
 - [ ] Improve horizontal scrolling behavior
-- [ ] Improve system prompt performance
-- [ ] Improve mouse position marking on screenshots
+- [x] Improve system prompt performance
+- [x] Improve mouse position marking on screenshots
 - [ ] Add ability for converting browser sessions into training datasets
 - [ ] Support for additional LLMs as an `ActionPlanner`
 - [ ] Train a local model

@@ -56,16 +56,18 @@ export class AnthropicPlanner extends ActionPlanner {
         const prompt = `<SYSTEM_CAPABILITY>
 * You are a computer use tool that is controlling a browser in fullscreen mode to complete a goal for the user. The goal is listed below in <USER_TASK>.
 * Since the browser is in fullscreen mode, you do not have access to browser UI elements such as STOP, REFRESH, BACK or the address bar. You will need to complete your task purely by interacting with the webside's UI.
-* When viewing a page it can be helpful to zoom out so that you can see everything on the page. Either that, or make sure you scroll down to see everything before deciding something isn't available.
+* Scroll down to see everything before deciding something isn't available.
 * ONLY use the Page_down or Page_up keys to scroll.
 * If the website is scrollable, a scrollbar that is shaped like a gray rectangle will be visible on the right edge of the screenshot.
 * The current date is ${new Date().toString()}.
 * Follow all directions from the <IMPORTANT> section below. 
+* THe mouse cursor is present in the screenshot.
 </SYSTEM_CAPABILITY>
 
 The user will ask you to perform a task and you should use their browser to do so. After each step, take a screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.
 
 <IMPORTANT>
+* ALWAYS left_click after a mouse move once the mouse cursor is hovering over the correct location.
 * You will use information provided in user's <USER DATA> to fill out forms on the way to your goal.
 * Always scroll a UI element fully into view before interacting with it.
 ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
@@ -383,11 +385,29 @@ ${additionalContext}
             };
         }
 
-        const { action, coordinate, text } = lastMessage.input as {
-            action: string;
-            coordinate?: [number, number];
+        const { action, text } = lastMessage.input as {
+            action: string;            
             text?: string;
         };
+
+        let coordinate: [number, number] | undefined;
+        let rawCoord = (lastMessage.input as any).coordinate;
+
+        // If we get coordinates as string
+        if (typeof rawCoord == 'string') {
+            console.log('Coordinate is a string:', rawCoord);
+            rawCoord = JSON.parse(rawCoord);
+        } 
+        
+        // Parse the coordinate object
+        if (typeof rawCoord == 'object'){
+            if ('x' in rawCoord && 'y' in rawCoord){
+                console.log('Coordinate object has x and y properties');
+                coordinate = [rawCoord.x, rawCoord.y]
+            } else if (Array.isArray(rawCoord)) {
+                coordinate = [rawCoord[0], rawCoord[1]];
+            }
+        }
 
         switch (action) {
             case 'key':
