@@ -626,25 +626,25 @@ Using the supporting contextual data:
                         id=last_message.id,
                     )
 
-                if action == "key":
+                # if action == "key":
                     # Handle special key mappings from utils.parse_xdotool
-                    text_lower = text.lower().strip()
-                    if text_lower in ("page_down", "pagedown"):
-                        return BrowserAction(
-                            action="scroll_down",
-                            reasoning=reasoning,
-                            coordinate=None,
-                            text=None,
-                            id=last_message.id,
-                        )
-                    if text_lower in ("page_up", "pageup"):
-                        return BrowserAction(
-                            action="scroll_up",
-                            reasoning=reasoning,
-                            coordinate=None,
-                            text=None,
-                            id=last_message.id,
-                        )
+                    # text_lower = text.lower().strip()
+                    # if text_lower in ("page_down", "pagedown"):
+                    #     return BrowserAction(
+                    #         action="scroll_down",
+                    #         reasoning=reasoning,
+                    #         coordinate=None,
+                    #         text=None,
+                    #         id=last_message.id,
+                    #     )
+                    # if text_lower in ("page_up", "pageup"):
+                    #     return BrowserAction(
+                    #         action="scroll_up",
+                    #         reasoning=reasoning,
+                    #         coordinate=None,
+                    #         text=None,
+                    #         id=last_message.id,
+                    #     )
 
                 return BrowserAction(
                     action=action,
@@ -783,7 +783,7 @@ Using the supporting contextual data:
             goal, additional_context, current_state, session_history
         )
 
-        # self.print_messages_without_screenshots(messages)
+        self.print_messages_without_screenshots(messages)
 
         scaling = self.get_scaling_ratio(
             Coordinate(x=current_state.width, y=current_state.height)
@@ -820,6 +820,7 @@ Using the supporting contextual data:
                     },
                 },
             ],
+            # tool_choice = {"type": "any"},
             messages=messages,
             betas=["computer-use-2024-10-22"],
         )
@@ -862,5 +863,4 @@ Using the supporting contextual data:
             scaling = self.get_scaling_ratio(img_dim)
             llm_coordinates = self.browser_to_llm_coordinates(step.action.coordinate, scaling)
             val["coordinate"] = [llm_coordinates.x, llm_coordinates.y]
-
         return val
