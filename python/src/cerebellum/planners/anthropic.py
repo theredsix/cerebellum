@@ -17,7 +17,9 @@ import random
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from math import floor
-from typing import cast
+from typing import Any, Dict, cast
+from copy import deepcopy
+import json
 
 from anthropic import Anthropic
 from anthropic.types.beta import (
@@ -146,25 +148,25 @@ class AnthropicPlanner(ActionPlanner):
             f"* {instruction}" for instruction in additional_instructions
         )
         prompt = f"""
-        <SYSTEM_CAPABILITY>
-        * You are a computer use tool that is controlling a browser in fullscreen mode to complete a goal for the user. The goal is listed below in <USER_TASK>.
-        * Since the browser is in fullscreen mode, you do not have access to browser UI elements such as STOP, REFRESH, BACK or the address bar. You will need to complete your task purely by interacting with the webside's UI.
-        * When viewing a page it can be helpful to zoom out so that you can see everything on the page. Either that, or make sure you scroll down to see everything before deciding something isn't available.
-        * ONLY use the Page_down or Page_up keys to scroll.
-        * When you are ready to interact with an element, like text or a button, you should use the left_click tool.
-        * If the website is scrollable, a scrollbar that is shaped like a gray rectangle will be visible on the right edge of the screenshot.
-        * Remember to always provide tool use input values in the format that was defined for each tool.
-        * The current date is {datetime.now()}.
-        * Follow all directions from the <IMPORTANT> section below. 
-        </SYSTEM_CAPABILITY>
+<SYSTEM_CAPABILITY>
+* You are a computer use tool that is controlling a browser in fullscreen mode to complete a goal for the user. The goal is listed below in <USER_TASK>.
+* Since the browser is in fullscreen mode, you do not have access to browser UI elements such as STOP, REFRESH, BACK or the address bar. You will need to complete your task purely by interacting with the webside's UI.
+* Scroll down to see everything before deciding something isn't available.
+* ONLY use the Page_down or Page_up keys to scroll.
+* If the website is scrollable, a scrollbar that is shaped like a gray rectangle will be visible on the right edge of the screenshot.
+* The current date is {datetime.now().isoformat()}.
+* Follow all directions from the <IMPORTANT> section below. 
+* The mouse cursor is present in the screenshot.
+</SYSTEM_CAPABILITY>
 
-        The user will ask you to perform a task and you should use their browser to do so. After each step, take a screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.
+The user will ask you to perform a task and you should use their browser to do so. After each step, take a screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.
 
-        <IMPORTANT>
-        * You will use information provided in user's <USER DATA> to fill out forms on the way to your goal.
-        * Always scroll a UI element fully into view before interacting with it.
-        * {instructions}
-        </IMPORTANT>"""
+<IMPORTANT>
+* ALWAYS left_click after a mouse move once the mouse cursor is hovering over the correct location.
+* You will use information provided in user's <USER DATA> to fill out forms on the way to your goal.
+* Always scroll a UI element fully into view before interacting with it.
+* {instructions}
+</IMPORTANT>"""
 
         return prompt.strip()
 
@@ -463,12 +465,15 @@ Using the supporting contextual data:
             "role": "assistant",
             "content": [
                 {
+                    "type": "text",
+                    "text": "Grab a view of the browser to understand what is the starting website state."
+                },
+                {
                     "type": "tool_use",
                     "id": tool_id,
                     "name": "computer",
                     "input": {
                         "action": "screenshot",
-                        "reasoning": "Grab a view of the browser to understand what we are looking at.",
                     },
                 }
             ],
@@ -487,16 +492,23 @@ Using the supporting contextual data:
             # Update tool ID for next action
             tool_id = past_step.action.id or self.create_tool_use_id()
 
-            action_msg: BetaMessageParam = {
-                "role": "assistant",
-                "content": [
-                    {
+            inner_content = []
+            # if past_step.action.reasoning:
+            #     inner_content.append({
+            #         "type": "text",
+            #         "text": past_step.action.reasoning
+            #     })
+
+            inner_content.append({
                         "type": "tool_use",
                         "id": tool_id,
                         "name": "computer",
-                        "input": asdict(past_step.action),
-                    }
-                ],
+                        "input": self.flatten_browser_step_to_action(past_step),
+                    })
+            
+            action_msg: BetaMessageParam = {
+                "role": "assistant",
+                "content": inner_content,
             }
             messages.append(action_msg)
 
@@ -534,6 +546,8 @@ Using the supporting contextual data:
         )
 
         last_message = message.content[-1]
+
+        print(last_message)
         if isinstance(last_message, str):
             return BrowserAction(
                 action="failure",
@@ -584,6 +598,23 @@ Using the supporting contextual data:
         coordinate = input_data.get("coordinate")
         text = input_data.get("text")
 
+        if isinstance(coordinate, str):
+            print("Coordinate is a string:", coordinate)
+            print(last_message)
+            raw = json.loads(coordinate)
+            if isinstance(raw, tuple):
+                coordinate = raw
+            elif isinstance(raw, dict):
+                if 'x' in raw and 'y' in raw:
+                    coordinate = (raw['x'], raw['y'])
+
+        if isinstance(coordinate, dict):
+            if 'x' in coordinate and 'y' in coordinate:
+                print("Coordinate object has x and y properties")
+                coordinate = (coordinate['x'], coordinate['y'])
+            elif isinstance(coordinate, list):
+                coordinate = (coordinate[0], coordinate[1])
+
         match action:
             case "key" | "type":
                 if not text:
@@ -633,6 +664,7 @@ Using the supporting contextual data:
                         id=last_message.id,
                     )
                 if isinstance(coordinate, str):
+                    print(last_message)
                     return BrowserAction(
                         action="failure",
                         reasoning=reasoning,
@@ -750,6 +782,9 @@ Using the supporting contextual data:
         messages = self.format_into_messages(
             goal, additional_context, current_state, session_history
         )
+
+        # self.print_messages_without_screenshots(messages)
+
         scaling = self.get_scaling_ratio(
             Coordinate(x=current_state.width, y=current_state.height)
         )
@@ -802,3 +837,30 @@ Using the supporting contextual data:
         print(action)
 
         return action
+    
+    def print_messages_without_screenshots(self, msg: list[BetaMessageParam]) -> None:
+        """Prints messages after removing all screenshot image types."""
+
+        msg_copy = deepcopy(msg)
+        for message in msg_copy:
+            if "content" in message:
+                for outer_content in message["content"]:
+                    if "content" in outer_content:
+                        outer_content["content"] = [content for content in outer_content["content"] if content["type"] != "image"]
+        
+        for message in msg_copy:
+            print(json.dumps(message, indent=2))
+
+    def flatten_browser_step_to_action(self, step: BrowserStep) -> Dict:
+        val = {
+            "action": step.action.action,
+        }
+        if step.action.text:
+            val["text"] = step.action.text
+        if step.action.coordinate:
+            img_dim = Coordinate(x=step.state.width, y=step.state.height)
+            scaling = self.get_scaling_ratio(img_dim)
+            llm_coordinates = self.browser_to_llm_coordinates(step.action.coordinate, scaling)
+            val["coordinate"] = [llm_coordinates.x, llm_coordinates.y]
+
+        return val

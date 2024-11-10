@@ -4,6 +4,7 @@ This module provides the core browser automation functionality: state management
 action planning, and action execution.
 """
 
+from ast import Tuple
 import json
 import time
 from abc import ABC, abstractmethod

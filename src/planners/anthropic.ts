@@ -61,7 +61,7 @@ export class AnthropicPlanner extends ActionPlanner {
 * If the website is scrollable, a scrollbar that is shaped like a gray rectangle will be visible on the right edge of the screenshot.
 * The current date is ${new Date().toString()}.
 * Follow all directions from the <IMPORTANT> section below. 
-* THe mouse cursor is present in the screenshot.
+* The mouse cursor is present in the screenshot.
 </SYSTEM_CAPABILITY>
 
 The user will ask you to perform a task and you should use their browser to do so. After each step, take a screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.

@@ -198,3 +198,4 @@ This project was inspired by the following:
 * Han Wang
 * Darwin Lo
 * Michael Shuffett
+* [Shane Moran](https://github.com/scm-aiml)
