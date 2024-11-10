@@ -13,13 +13,13 @@ Typical usage example:
 
 import base64
 import io
+import json
 import random
-from dataclasses import asdict, dataclass
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
 from math import floor
-from typing import Any, Dict, cast
-from copy import deepcopy
-import json
+from typing import Any, cast
 
 from anthropic import Anthropic
 from anthropic.types.beta import (
@@ -466,7 +466,7 @@ Using the supporting contextual data:
             "content": [
                 {
                     "type": "text",
-                    "text": "Grab a view of the browser to understand what is the starting website state."
+                    "text": "Grab a view of the browser to understand what is the starting website state.",
                 },
                 {
                     "type": "tool_use",
@@ -475,7 +475,7 @@ Using the supporting contextual data:
                     "input": {
                         "action": "screenshot",
                     },
-                }
+                },
             ],
         }
         messages.extend([msg0, msg1])
@@ -493,19 +493,16 @@ Using the supporting contextual data:
             tool_id = past_step.action.id or self.create_tool_use_id()
 
             inner_content = []
-            # if past_step.action.reasoning:
-            #     inner_content.append({
-            #         "type": "text",
-            #         "text": past_step.action.reasoning
-            #     })
 
-            inner_content.append({
-                        "type": "tool_use",
-                        "id": tool_id,
-                        "name": "computer",
-                        "input": self.flatten_browser_step_to_action(past_step),
-                    })
-            
+            inner_content.append(
+                {
+                    "type": "tool_use",
+                    "id": tool_id,
+                    "name": "computer",
+                    "input": self.flatten_browser_step_to_action(past_step),
+                }
+            )
+
             action_msg: BetaMessageParam = {
                 "role": "assistant",
                 "content": inner_content,
@@ -595,7 +592,7 @@ Using the supporting contextual data:
 
         input_data = cast(dict, last_message.input)
         action = input_data.get("action", "")
-        coordinate = input_data.get("coordinate")
+        coordinate: list[int] | None = input_data.get("coordinate")
         text = input_data.get("text")
 
         if isinstance(coordinate, str):
@@ -605,13 +602,13 @@ Using the supporting contextual data:
             if isinstance(raw, tuple):
                 coordinate = raw
             elif isinstance(raw, dict):
-                if 'x' in raw and 'y' in raw:
-                    coordinate = (raw['x'], raw['y'])
+                if "x" in raw and "y" in raw:
+                    coordinate = (raw["x"], raw["y"])
 
         if isinstance(coordinate, dict):
-            if 'x' in coordinate and 'y' in coordinate:
+            if "x" in coordinate and "y" in coordinate:
                 print("Coordinate object has x and y properties")
-                coordinate = (coordinate['x'], coordinate['y'])
+                coordinate = (coordinate["x"], coordinate["y"])
             elif isinstance(coordinate, list):
                 coordinate = (coordinate[0], coordinate[1])
 
@@ -625,26 +622,6 @@ Using the supporting contextual data:
                         coordinate=None,
                         id=last_message.id,
                     )
-
-                # if action == "key":
-                    # Handle special key mappings from utils.parse_xdotool
-                    # text_lower = text.lower().strip()
-                    # if text_lower in ("page_down", "pagedown"):
-                    #     return BrowserAction(
-                    #         action="scroll_down",
-                    #         reasoning=reasoning,
-                    #         coordinate=None,
-                    #         text=None,
-                    #         id=last_message.id,
-                    #     )
-                    # if text_lower in ("page_up", "pageup"):
-                    #     return BrowserAction(
-                    #         action="scroll_up",
-                    #         reasoning=reasoning,
-                    #         coordinate=None,
-                    #         text=None,
-                    #         id=last_message.id,
-                    #     )
 
                 return BrowserAction(
                     action=action,
@@ -838,7 +815,7 @@ Using the supporting contextual data:
         print(action)
 
         return action
-    
+
     def print_messages_without_screenshots(self, msg: list[BetaMessageParam]) -> None:
         """Prints messages after removing all screenshot image types."""
 
@@ -847,13 +824,17 @@ Using the supporting contextual data:
             if "content" in message:
                 for outer_content in message["content"]:
                     if "content" in outer_content:
-                        outer_content["content"] = [content for content in outer_content["content"] if content["type"] != "image"]
-        
+                        outer_content["content"] = [
+                            content
+                            for content in outer_content["content"]
+                            if content["type"] != "image"
+                        ]
+
         for message in msg_copy:
             print(json.dumps(message, indent=2))
 
-    def flatten_browser_step_to_action(self, step: BrowserStep) -> Dict:
-        val = {
+    def flatten_browser_step_to_action(self, step: BrowserStep) -> dict:
+        val: dict[str, Any] = {
             "action": step.action.action,
         }
         if step.action.text:
@@ -861,6 +842,8 @@ Using the supporting contextual data:
         if step.action.coordinate:
             img_dim = Coordinate(x=step.state.width, y=step.state.height)
             scaling = self.get_scaling_ratio(img_dim)
-            llm_coordinates = self.browser_to_llm_coordinates(step.action.coordinate, scaling)
+            llm_coordinates = self.browser_to_llm_coordinates(
+                step.action.coordinate, scaling
+            )
             val["coordinate"] = [llm_coordinates.x, llm_coordinates.y]
         return val
