@@ -2,19 +2,27 @@
 
 1. Pull the repo from github.
 
-    ```git clone git@github.com:theredsix/cerebellum.git```
+    ```bash
+   git clone git@github.com:theredsix/cerebellum.git
+    ```
 
-2. `cd` into the directory
+3. `cd` into the directory
 
-    ```cd cerebellum```
+    ```
+    cd cerebellum
+    ```
 
-3. Install dependencies
+5. Install dependencies
 
-    ```npm install```
+    ```
+    npm install
+    ```
 
-4. Run the google.ts example.
+7. Run the google.ts example.
 
-    ```npx tsx example/google.ts```
+    ```
+    npx tsx example/google.ts
+    ```
 
 ### Initializing with a user profile
 
