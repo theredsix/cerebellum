@@ -1,6 +1,6 @@
 # Cerebellum (Python)
 
-This is a Python port of the TypeScript implementation of Cerebellum, a lightweight browser automation agent that accomplishes user-defined goals using keyboard and mouse actions.
+This is a Python implementation of Cerebellum, a lightweight browser automation agent that accomplishes user-defined goals using keyboard and mouse actions.
 
 ## See It In Action
 
@@ -10,33 +10,51 @@ Goal: `Show me the wikipedia page of the creator of Bitcoin`
 
 ## Setup
 
-1. First, follow the Selenium setup instructions in the [README](../README.md#setup) to install the appropriate webdriver for your browser.
+Install the package from pypi.
 
-2. Create and activate a conda environment with Python 3.11:
-   ```bash
-   conda create -n cerebellum python=3.11
-   conda activate cerebellum
-   ```
+```bash
+pip install cerebellum
+```
 
-3. Install Poetry using pip:
-   ```bash
-   pip install poetry
-   ```
+Import module and use.
 
-4. Install dependencies:
-   ```bash
-   poetry install
-   ```
+```python
+from seleniumbase import get_driver
+from cerebellum import AnthropicPlanner, BrowserAgent, BrowserAgentOptions, pause_for_input
 
-   For development dependencies:
-   ```bash
-   poetry install --with dev
-   ```
+def main():
+    driver = get_driver()
 
-5. Set up your Anthropic API key:
-   ```bash
-   export ANTHROPIC_API_KEY='your-api-key'
-   ```
+    try:
+        # Set your starting page
+        driver.get("https://www.google.com")
+
+        # Define your goal
+        goal = "Show me the wikipedia page of the creator of Bitcoin"
+
+        # Create the Cerebellum browser agent
+        planner = AnthropicPlanner()
+
+        options = BrowserAgentOptions(pause_after_each_action=True)
+
+        agent = BrowserAgent(driver, planner, goal, options)
+        agent.pause_after_each_action = False
+
+        pause_for_input()
+        # Have Cerebellum takeover website navigation
+        agent.start()
+
+        # Goal has now been reached, you may interact with the Selenium driver any way you want
+        pause_for_input()
+
+    finally:
+        driver.quit()
+
+
+if __name__ == "__main__":
+    main()
+
+```
 
 ## Running the Example
 
@@ -67,9 +85,39 @@ The Python implementation consists of three main modules:
 
 ## Development
 
-To run tests:
-```bash
-poetry run pytest
-```
+1. Clone repository
+
+2. CD into the `/python` folder
+
+3. Install [pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#getting-pyenv) and set Python 3.11 as the local version:
+   ```bash
+   pyenv install 3.11.0
+   pyenv virtualenv 3.11.0 cerebellum
+   pyenv activate cerebellum
+   ```
+
+4. Install Poetry using pip:
+   ```bash
+   pip install poetry
+   ```
+
+5. Install dependencies:
+   ```bash
+   poetry install --with dev
+   ```
+
+6. Set up your Anthropic API key:
+   ```bash
+   export ANTHROPIC_API_KEY='your-api-key'
+
+7. Run tests:
+   ```bash
+   pytest
+   ```
+
+7. Run the google example
+   ```bash
+   python example/google.py
+   ```
 
 For more examples and detailed API documentation, refer to the [root README](../README.md).

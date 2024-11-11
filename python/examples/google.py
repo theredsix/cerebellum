@@ -1,8 +1,8 @@
-from selenium import webdriver
+from seleniumbase import get_driver
 from cerebellum import AnthropicPlanner, BrowserAgent, BrowserAgentOptions, pause_for_input
 
 def main():
-    driver = webdriver.Chrome()
+    driver = get_driver()
 
     try:
         # Set your starting page
