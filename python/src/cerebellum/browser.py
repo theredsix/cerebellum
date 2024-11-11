@@ -329,11 +329,11 @@ class BrowserAgent:
                 pass
 
             case "scroll_down":
-                action_builder.wheel_action.scroll(0, 0, 0, int(last_state.height / 2))
+                action_builder.wheel_action.scroll(0, 0, 0, int(3* last_state.height / 4))
                 action_builder.perform()
 
             case "scroll_up":
-                action_builder.wheel_action.scroll(0, 0, 0, int(-last_state.height / 2))
+                action_builder.wheel_action.scroll(0, 0, 0, int(3* -last_state.height / 4))
                 action_builder.perform()
 
             case _:

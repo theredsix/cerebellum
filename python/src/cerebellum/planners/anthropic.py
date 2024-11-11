@@ -626,25 +626,25 @@ Using the supporting contextual data:
                         id=last_message.id,
                     )
 
-                # if action == "key":
+                if action == "key":
                     # Handle special key mappings from utils.parse_xdotool
-                    # text_lower = text.lower().strip()
-                    # if text_lower in ("page_down", "pagedown"):
-                    #     return BrowserAction(
-                    #         action="scroll_down",
-                    #         reasoning=reasoning,
-                    #         coordinate=None,
-                    #         text=None,
-                    #         id=last_message.id,
-                    #     )
-                    # if text_lower in ("page_up", "pageup"):
-                    #     return BrowserAction(
-                    #         action="scroll_up",
-                    #         reasoning=reasoning,
-                    #         coordinate=None,
-                    #         text=None,
-                    #         id=last_message.id,
-                    #     )
+                    text_lower = text.lower().strip()
+                    if text_lower in ("page_down", "pagedown"):
+                        return BrowserAction(
+                            action="scroll_down",
+                            reasoning=reasoning,
+                            coordinate=None,
+                            text=None,
+                            id=last_message.id,
+                        )
+                    if text_lower in ("page_up", "pageup"):
+                        return BrowserAction(
+                            action="scroll_up",
+                            reasoning=reasoning,
+                            coordinate=None,
+                            text=None,
+                            id=last_message.id,
+                        )
 
                 return BrowserAction(
                     action=action,
@@ -853,6 +853,18 @@ Using the supporting contextual data:
             print(json.dumps(message, indent=2))
 
     def flatten_browser_step_to_action(self, step: BrowserStep) -> Dict:
+        if (step.action.action == 'scroll_down'):
+            return {
+                "action": "key",
+                "text": "Page_Down"
+            }
+        
+        if (step.action.action == 'scroll_up'):
+            return {
+                "action": "key",
+                "text": "Page_Up"
+            }
+        
         val = {
             "action": step.action.action,
         }
@@ -863,4 +875,5 @@ Using the supporting contextual data:
             scaling = self.get_scaling_ratio(img_dim)
             llm_coordinates = self.browser_to_llm_coordinates(step.action.coordinate, scaling)
             val["coordinate"] = [llm_coordinates.x, llm_coordinates.y]
+        
         return val
