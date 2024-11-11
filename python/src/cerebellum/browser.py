@@ -4,22 +4,17 @@ This module provides the core browser automation functionality: state management
 action planning, and action execution.
 """
 
-from ast import Tuple
 import json
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal, Any
-
-from selenium.webdriver import ActionChains
-from selenium.webdriver.common.by import By
-from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.common.actions.action_builder import ActionBuilder
-from selenium.webdriver.common.actions.pointer_input import PointerInput
-from selenium.webdriver.common.actions.key_input import KeyInput
+from typing import Any, Literal
 
 from cerebellum.utils import parse_xdotool, pause_for_input
+from selenium.webdriver import ActionChains
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.remote.webdriver import WebDriver
 
 
 class BrowserGoalState(StrEnum):
@@ -93,8 +88,6 @@ class BrowserAction:
         "double_click",
         "screenshot",
         "cursor_position",
-        "scroll_up",
-        "scroll_down",
     ]
     coordinate: Coordinate | None
     text: str | None
