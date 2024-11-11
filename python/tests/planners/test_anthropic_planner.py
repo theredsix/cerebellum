@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
-from cerebellum.planners.anthropic import (
+from cerebellum import (
     AnthropicPlanner,
     AnthropicPlannerOptions,
     BrowserAction,

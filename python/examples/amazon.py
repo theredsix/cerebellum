@@ -1,8 +1,5 @@
 from seleniumbase import get_driver
-from cerebellum.planners.anthropic import AnthropicPlanner
-from cerebellum.browser import BrowserAgent, BrowserAgentOptions
-from cerebellum.utils import pause_for_input
-
+from cerebellum import AnthropicPlanner, BrowserAgent, BrowserAgentOptions, pause_for_input
 
 def main():
     driver = get_driver(

@@ -1,5 +1,5 @@
 from unittest.mock import Mock
-from cerebellum.browser import (
+from cerebellum import (
     BrowserAgent,
     BrowserGoalState,
     BrowserAgentOptions,

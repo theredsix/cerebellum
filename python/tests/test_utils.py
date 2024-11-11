@@ -2,7 +2,7 @@ import termios
 from typing import Final
 
 import pytest
-from cerebellum.utils import KeyMapping, parse_xdotool, pause_for_input
+from cerebellum import KeyMapping, parse_xdotool, pause_for_input
 from selenium.webdriver.common.keys import Keys
 
 # Constants for test values
