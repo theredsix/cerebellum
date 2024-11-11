@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "cerebellum"
+version = "0.1.3"
+description = "Browser automation through LLM planners"
+authors = ["TheRedSix"]
+packages = [{include = "cerebellum", from = "src"}]
+license = "MIT"
+repository = "https://github.com/theredsix/cerebellum"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+selenium = "^4.0.0"
+seleniumbase = "^4.32.9"
+anthropic = "^0.39.0"
+pillow = "^11.0.0"
+numpy = "^2.1.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+pytest-mock = "^3.14.0"
+pytest-cov = "^6.0.0"
+black = "^24.10.0"
+ruff = "^0.7.2"
+mypy = "^1.13.0"
+sphinx = "^7.2.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "RUF", # ruff-specific rules
+]
+
+[tool.ruff.isort]
+known-first-party = ["cerebellum"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/cerebellum --cov-report=html --cov-report=term-missing"
+testpaths = ["tests"]
