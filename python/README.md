@@ -10,51 +10,56 @@ Goal: `Show me the wikipedia page of the creator of Bitcoin`
 
 ## Setup
 
-Install the package from pypi.
+1. Install the package from pypi.
 
-```bash
-pip install cerebellum
-```
+   ```bash
+   pip install cerebellum
+   ```
 
-Import module and use.
+2. Set up your Anthropic API key:
+   ```bash
+   export ANTHROPIC_API_KEY='your-api-key'
+   ```
 
-```python
-from seleniumbase import get_driver
-from cerebellum import AnthropicPlanner, BrowserAgent, BrowserAgentOptions, pause_for_input
+3. Import module and use.
 
-def main():
-    driver = get_driver()
+   ```python
+   from seleniumbase import get_driver
+   from cerebellum import AnthropicPlanner, BrowserAgent, BrowserAgentOptions, pause_for_input
 
-    try:
-        # Set your starting page
-        driver.get("https://www.google.com")
+   def main():
+      driver = get_driver()
 
-        # Define your goal
-        goal = "Show me the wikipedia page of the creator of Bitcoin"
+      try:
+         # Set your starting page
+         driver.get("https://www.google.com")
 
-        # Create the Cerebellum browser agent
-        planner = AnthropicPlanner()
+         # Define your goal
+         goal = "Show me the wikipedia page of the creator of Bitcoin"
 
-        options = BrowserAgentOptions(pause_after_each_action=True)
+         # Create the Cerebellum browser agent
+         planner = AnthropicPlanner()
 
-        agent = BrowserAgent(driver, planner, goal, options)
-        agent.pause_after_each_action = False
+         options = BrowserAgentOptions(pause_after_each_action=True)
 
-        pause_for_input()
-        # Have Cerebellum takeover website navigation
-        agent.start()
+         agent = BrowserAgent(driver, planner, goal, options)
+         agent.pause_after_each_action = False
 
-        # Goal has now been reached, you may interact with the Selenium driver any way you want
-        pause_for_input()
+         pause_for_input()
+         # Have Cerebellum takeover website navigation
+         agent.start()
 
-    finally:
-        driver.quit()
+         # Goal has now been reached, you may interact with the Selenium driver any way you want
+         pause_for_input()
+
+      finally:
+         driver.quit()
 
 
-if __name__ == "__main__":
-    main()
+   if __name__ == "__main__":
+      main()
 
-```
+   ```
 
 ## Running the Example
 
