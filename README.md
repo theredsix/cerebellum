@@ -195,7 +195,7 @@ This project was inspired by the following:
 
 ## Collaborators
 
-* Han Wang
-* Darwin Lo
-* Michael Shuffett
+* [Han Wang](https://github.com/theredsix)
+* [Darwin Lo](https://github.com/thefireskater)
+* [Michael Shuffett](https://github.com/mshuffett)
 * [Shane Moran](https://github.com/scm-aiml)
