@@ -12,8 +12,8 @@ Goal: `Find a USB C to C cable that is 10 feet long and add it to cart`
 
 Please see setup directions for your language:
 
-* [Python](/python/README.md)
-* [Typescript](/typescript/README.md)
+* [Python](/python/README.md#setup)
+* [Typescript](/typescript/README.md#setup)
 
 ## How It Works
 
