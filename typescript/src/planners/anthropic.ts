@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ActionPlanner, BrowserAction, BrowserState, BrowserStep, Coordinate, ScrollBar } from '../browser';
 import sharp from 'sharp';
-import { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import { BetaContentBlockParam, BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 
 import fs from 'fs';
 interface ScalingRatio {
@@ -259,6 +259,40 @@ ${additionalInstructions.map(instruction => `* ${instruction}`).join('\n')}
         return resultMsg;
     }
 
+    public flattenBrowserStepToAction(step: BrowserStep): Record<string, any> {
+        if (step.action.action === 'scroll_down') {
+            return {
+                action: 'key',
+                text: 'Page_Down'
+            };
+        }
+
+        if (step.action.action === 'scroll_up') {
+            return {
+                action: 'key',
+                text: 'Page_Up'
+            };
+        }
+
+        const val: Record<string, any> = {
+            action: step.action.action,
+        };
+
+        if (step.action.text) {
+            val.text = step.action.text;
+        }
+
+        if (step.action.coordinate) {
+            const imgDim:  Coordinate = { x: step.state.width, y: step.state.height};
+            const scaling = this.getScalingRatio(imgDim);
+            const llmCoordinates = this.browserToLLMCoordinates(
+                {x: step.action.coordinate[0], y: step.action.coordinate[1]}, scaling);
+            val.coordinate = [llmCoordinates.x, llmCoordinates.y];
+        }
+
+        return val;
+    }
+
     public async formatIntoMessages(goal: string, additionalContext: string, currentState: BrowserState, sessionHistory: BrowserStep[]): Promise<BetaMessageParam[]> {
         const messages: BetaMessageParam[] = [];
 
@@ -319,7 +353,7 @@ ${additionalContext}
                         type: 'tool_use',
                         id: toolId,
                         name: 'computer',
-                        input: pastStep.action
+                        input: this.flattenBrowserStepToAction(pastStep)
                     }
                 ]
             }
@@ -513,6 +547,8 @@ ${additionalContext}
         const messages = await this.formatIntoMessages(goal, additionalContext, currentState, sessionHistory);
         const scaling = this.getScalingRatio({ x: currentState.width, y: currentState.height });
 
+        this.printMessagesWithoutScreenshots(messages);
+
         const response = await this.client.beta.messages.create({
             model: "claude-3-5-sonnet-20241022",
             system: systemPrompt,
@@ -559,4 +595,26 @@ ${additionalContext}
 
         return action;
     }
+
+public printMessagesWithoutScreenshots(msg: BetaMessageParam[]): void {
+    // Create a deep copy of the messages to avoid modifying the original
+    const msgCopy: BetaMessageParam[] = JSON.parse(JSON.stringify(msg));
+
+    // Iterate over each message in the copy
+    for (const message of msgCopy) {
+        if (message.content) {
+            for (const outerContent of message.content as any) {
+                if (outerContent.content) {
+                    // Filter out any content of type 'image'
+                    outerContent.content = outerContent.content.filter((content: BetaContentBlockParam) => content.type !== 'image');
+                }
+            }
+        }
+    }
+
+    // Print each message in the modified copy
+    for (const message of msgCopy) {
+        console.log(JSON.stringify(message, null, 2));
+    }
+}
 }

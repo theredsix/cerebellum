@@ -18,7 +18,7 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
       debugImagePath: './llmView.png'
     });
     const agent = new BrowserAgent(driver, planner, goal, {
-      pauseAfterEachAction: true,
+      pauseAfterEachAction: false,
     });
 
     // Have Cerebellum takeover website navigation

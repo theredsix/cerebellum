@@ -10,12 +10,12 @@ import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
     await driver.get('https://www.google.com');
     
     // Define your goal
-    const goal = 'Find flights from seattle to sf for next tuesday to thursday';
+    const goal = 'Find flights from Seattle to SF for next Tuesday to Thursday';
     
     // Create the Cerebellum browser agent
     const planner = new AnthropicPlanner({ apiKey: process.env.ANTHROPIC_API_KEY as string});
     const agent = new BrowserAgent(driver, planner, goal, {
-      pauseAfterEachAction: true,
+      pauseAfterEachAction: false,
     });
 
     // Have Cerebellum takeover website navigation
