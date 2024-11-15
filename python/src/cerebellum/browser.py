@@ -9,7 +9,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Dict, List, Literal
 
 from cerebellum.utils import parse_xdotool, pause_for_input
 from selenium.webdriver import ActionChains
@@ -58,8 +58,17 @@ class ScrollBar:
     offset: float
     height: float
 
-
 @dataclass(frozen=True)
+class BrowserTab:
+    """Information about one browser tab"""
+    handle: str
+    url: str
+    title: str
+    active: bool
+    new: bool
+    id: int
+
+@dataclass
 class BrowserState:
     """Comprehensive capture of browser state"""
 
@@ -67,7 +76,8 @@ class BrowserState:
     height: int
     width: int
     scrollbar: ScrollBar
-    url: str
+    tabs: List[BrowserTab]
+    active_tab: str
     mouse: Coordinate
 
 
@@ -88,6 +98,7 @@ class BrowserAction:
         "double_click",
         "screenshot",
         "cursor_position",
+        "switch_tab",
     ]
     coordinate: Coordinate | None
     text: str | None
@@ -171,6 +182,7 @@ class BrowserAgent:
         self.max_steps = 50
         self._status = BrowserGoalState.INITIAL
         self.history: list[BrowserStep] = []
+        self.tabs: Dict[BrowserTab, int] = {}
 
         # Set options if supplied
         if options:
@@ -194,17 +206,48 @@ class BrowserAgent:
             "return { x: window.innerWidth, y: window.innerHeight }"
         )
         screenshot = self.driver.get_screenshot_as_base64()
-        url = self.driver.current_url
 
         mouse_position = self.get_mouse_position()
         scroll_position = self.get_scroll_position()
+
+        tabs = self.driver.window_handles
+        current_tab = self.driver.current_window_handle
+        browser_tabs = []
+
+        for tab in tabs:
+            self.driver.switch_to.window(tab)
+            tab_url = self.driver.current_url
+            tab_title = self.driver.title
+            is_active = (tab == current_tab)
+            
+            if tab in self.tabs:
+                tab_id = self.tabs[tab]
+                is_new = False
+            else:
+                tab_id = len(self.tabs)
+                self.tabs[tab] = tab_id
+                is_new = True
+
+            browser_tab = BrowserTab(
+                handle=tab,
+                url=tab_url,
+                title=tab_title,
+                active=is_active,
+                new=is_new,
+                id=tab_id
+            )
+            browser_tabs.append(browser_tab)
+
+        # Switch back to the original active tab
+        self.driver.switch_to.window(current_tab)
 
         return BrowserState(
             screenshot=screenshot,
             height=viewport["y"],
             width=viewport["x"],
             scrollbar=scroll_position,
-            url=url,
+            tabs=browser_tabs,
+            active_tab=current_tab,
             mouse=mouse_position,
         )
 
@@ -328,6 +371,17 @@ class BrowserAgent:
             case "scroll_up":
                 action_builder.wheel_action.scroll(0, 0, 0, int(3* -last_state.height / 4))
                 action_builder.perform()
+
+            case "switch_tab":
+                if not action.text:
+                    raise ValueError("Text is required for switch_tab action")
+                print(self.tabs)
+                tab_handle = next((handle for handle, id in self.tabs.items() if id == int(action.text)), None)
+                print(action.text)
+                print(tab_handle)
+                if tab_handle is None:
+                    raise ValueError(f"No tab found with id: {action.text}")
+                self.driver.switch_to.window(tab_handle)
 
             case _:
                 raise ValueError(f"Unsupported action: {action.action}")

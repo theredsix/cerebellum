@@ -16,7 +16,7 @@ import io
 import json
 import random
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from math import floor
 from typing import cast, Dict
@@ -51,7 +51,7 @@ class ScalingRatio:
 class MsgOptions:
     mouse_position: bool
     screenshot: bool
-    url: bool
+    tabs: bool
 
 
 # Base64 encoded cursor image
@@ -150,21 +150,25 @@ class AnthropicPlanner(ActionPlanner):
         prompt = f"""
 <SYSTEM_CAPABILITY>
 * You are a computer use tool that is controlling a browser in fullscreen mode to complete a goal for the user. The goal is listed below in <USER_TASK>.
-* Since the browser is in fullscreen mode, you do not have access to browser UI elements such as STOP, REFRESH, BACK or the address bar. You will need to complete your task purely by interacting with the webside's UI.
-* Scroll down to see everything before deciding something isn't available.
-* ONLY use the Page_down or Page_up keys to scroll.
-* If the website is scrollable, a scrollbar that is shaped like a gray rectangle will be visible on the right edge of the screenshot.
-* The current date is {datetime.now().isoformat()}.
+* The browser operates in fullscreen mode, meaning you cannot use standard browser UI elements like STOP, REFRESH, BACK, or the address bar. You must accomplish your task solely by interacting with the website's user interface or calling "switch_tab" or "stop_browsing"
+* After each action, you will be provided with mouse position, open tabs, and a screenshot of the active browser tab.
+* Use the Page_down or Page_up keys to scroll through the webpage. If the website is scrollable, a gray rectangle-shaped scrollbar will appear on the right edge of the screenshot. Ensure you have scrolled through the entire page before concluding that content is unavailable.
+* The mouse cursor will appear as a black arrow in the screenshot. Use its position to confirm whether your mouse movement actions have been executed successfully. Ensure the cursor is correctly positioned over the intended UI element before executing a click command.
+* After each action, you will receive information about open browser tabs. This information will be in the form of a list of JSON objects, each representing a browser tab with the following fields:
+  - "tab_id": An integer that identifies the tab within the browser. Use this ID to switch between tabs.
+  - "title": A string representing the title of the webpage loaded in the tab.
+  - "active_tab": A boolean indicating whether this tab is currently active. You will receive a screenshot of the active tab.
+  - "new_tab": A boolean indicating whether the tab was opened as a result of the last action.
 * Follow all directions from the <IMPORTANT> section below. 
-* The mouse cursor is present in the screenshot.
+* The current date is {datetime.now().isoformat()}.
 </SYSTEM_CAPABILITY>
 
-The user will ask you to perform a task and you should use their browser to do so. After each step, take a screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.
+The user will ask you to perform a task and you should use their browser to do so. After each step, analyze the screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.
 
 <IMPORTANT>
-* ALWAYS left_click after a mouse move once the mouse cursor is hovering over the correct location.
+* After moving the mouse to the desired location, always perform a left-click to ensure the action is completed.
 * You will use information provided in user's <USER DATA> to fill out forms on the way to your goal.
-* Always scroll a UI element fully into view before interacting with it.
+* Ensure that any UI element is completely visible on the screen before attempting to interact with it.
 * {instructions}
 </IMPORTANT>"""
 
@@ -373,13 +377,23 @@ The user will ask you to perform a task and you should use their browser to do s
             img_dim = Coordinate(x=current_state.width, y=current_state.height)
             scaling = self.get_scaling_ratio(img_dim)
             scaled_coord = self.browser_to_llm_coordinates(current_state.mouse, scaling)
-            result_text += f"After action mouse cursor is at X: {scaled_coord.x}, Y: {scaled_coord.y}\n\n"
+            result_text += f"Mouse location: {json.dumps(asdict(scaled_coord))}\n\n"
 
-        if options.url:
-            result_text += f"After action, the tab's URL is {current_state.url}\n\n"
+        if options.tabs:
+            tabs_as_dicts = [
+                {
+                    "tab_id": tab.id,
+                    "title": tab.title,
+                    "active_tab": tab.active,
+                    "new_tab": tab.new
+                }
+                for tab in current_state.tabs
+            ]
+
+            result_text += f"\n\nOpen Browser Tabs: {json.dumps(tabs_as_dicts)}\n\n"
 
         if options.screenshot:
-            result_text += "Here is a screenshot of the browser after the action was performed.\n\n"
+            # result_text += "Here is a screenshot of the browser after the action was performed.\n\n"
             img_buffer = base64.b64decode(current_state.screenshot)
             viewport_image = self.resize_image_to_dimensions(
                 img_buffer, Coordinate(x=current_state.width, y=current_state.height)
@@ -481,7 +495,7 @@ Using the supporting contextual data:
         messages.extend([msg0, msg1])
 
         for past_step_idx, past_step in enumerate(session_history):
-            options = MsgOptions(mouse_position=False, screenshot=False, url=True)
+            options = MsgOptions(mouse_position=False, screenshot=False, tabs=False)
 
             if past_step_idx <= (len(session_history) - self.screenshot_history):
                 options.url = True  # Matches TypeScript: options.url = true
@@ -512,7 +526,7 @@ Using the supporting contextual data:
         current_state_message = self.format_state_into_msg(
             tool_id,
             current_state,
-            MsgOptions(mouse_position=True, screenshot=True, url=True),
+            MsgOptions(mouse_position=True, screenshot=True, tabs=True),
         )
         messages.append(current_state_message)
 
@@ -580,6 +594,25 @@ Using the supporting contextual data:
                 coordinate=None,
                 id=last_message.id,
             )
+        
+        if last_message.name == "switch_tab":
+            input_data = cast(dict, last_message.input)
+            if "tab_id" not in input_data:
+                return BrowserAction(
+                    action="failure",
+                    reasoning=reasoning,
+                    text=input_data.get("error", "No tab id for switch_tab function call"),
+                    coordinate=None,
+                    id=last_message.id,
+                )
+            return BrowserAction(
+                action="switch_tab",
+                reasoning=reasoning,
+                text=input_data["tab_id"],
+                coordinate=None,
+                id=last_message.id,
+            )
+
 
         if last_message.name != "computer":
             return BrowserAction(
@@ -780,7 +813,7 @@ Using the supporting contextual data:
             goal, additional_context, current_state, session_history
         )
 
-        self.print_messages_without_screenshots(messages)
+        # self.print_messages_without_screenshots(messages)
 
         scaling = self.get_scaling_ratio(
             Coordinate(x=current_state.width, y=current_state.height)
@@ -797,6 +830,20 @@ Using the supporting contextual data:
                     "display_width_px": current_state.width,
                     "display_height_px": current_state.height,
                     "display_number": 1,
+                },
+                {
+                    "name": "switch_tab",
+                    "description": "Call this function to switch the active browser tab to a new one",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "tab_id": {
+                                "type": "integer",
+                                "description": "The ID of the tab to switch to",
+                            },
+                        },
+                        "required": ["tab_id"],
+                    },
                 },
                 {
                     "name": "stop_browsing",
