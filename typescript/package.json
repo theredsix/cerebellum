@@ -1,6 +1,6 @@
 {
   "name": "cerebellum-ai",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "LLM based browser automation",
   "type": "module",
   "main": "./dist/index.cjs",
