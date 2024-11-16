@@ -16,10 +16,10 @@ import io
 import json
 import random
 from copy import deepcopy
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from math import floor
-from typing import cast, Dict
+from typing import Any, Dict, cast
 
 from anthropic import Anthropic
 from anthropic.types.beta import (
@@ -27,10 +27,12 @@ from anthropic.types.beta import (
     BetaMessage,
     BetaMessageParam,
     BetaTextBlockParam,
+    BetaToolUseBlockParam,
 )
 from cerebellum.browser import (
     ActionPlanner,
     BrowserAction,
+    BrowserActionType,
     BrowserState,
     BrowserStep,
     Coordinate,
@@ -385,7 +387,7 @@ The user will ask you to perform a task and you should use their browser to do s
                     "tab_id": tab.id,
                     "title": tab.title,
                     "active_tab": tab.active,
-                    "new_tab": tab.new
+                    "new_tab": tab.new,
                 }
                 for tab in current_state.tabs
             ]
@@ -494,11 +496,8 @@ Using the supporting contextual data:
         }
         messages.extend([msg0, msg1])
 
-        for past_step_idx, past_step in enumerate(session_history):
+        for past_step in session_history:
             options = MsgOptions(mouse_position=False, screenshot=False, tabs=False)
-
-            if past_step_idx <= (len(session_history) - self.screenshot_history):
-                options.url = True  # Matches TypeScript: options.url = true
 
             result_msg = self.format_state_into_msg(tool_id, past_step.state, options)
             messages.append(result_msg)
@@ -519,7 +518,9 @@ Using the supporting contextual data:
 
             action_msg: BetaMessageParam = {
                 "role": "assistant",
-                "content": inner_content,
+                "content": cast(
+                    list[BetaTextBlockParam | BetaToolUseBlockParam], inner_content
+                ),
             }
             messages.append(action_msg)
 
@@ -561,7 +562,7 @@ Using the supporting contextual data:
         print(last_message)
         if isinstance(last_message, str):
             return BrowserAction(
-                action="failure",
+                action=BrowserActionType.FAILURE,
                 reasoning=last_message,
                 coordinate=None,
                 text=None,
@@ -570,7 +571,7 @@ Using the supporting contextual data:
 
         if last_message.type != "tool_use":
             return BrowserAction(
-                action="failure",
+                action=BrowserActionType.FAILURE,
                 reasoning=reasoning,
                 text="Invalid message type",
                 coordinate=None,
@@ -581,42 +582,43 @@ Using the supporting contextual data:
             input_data = cast(dict, last_message.input)
             if not input_data.get("success"):
                 return BrowserAction(
-                    action="failure",
+                    action=BrowserActionType.FAILURE,
                     reasoning=reasoning,
                     text=input_data.get("error", "Unknown error"),
                     coordinate=None,
                     id=last_message.id,
                 )
             return BrowserAction(
-                action="success",
+                action=BrowserActionType.SUCCESS,
                 reasoning=reasoning,
                 text=None,
                 coordinate=None,
                 id=last_message.id,
             )
-        
+
         if last_message.name == "switch_tab":
             input_data = cast(dict, last_message.input)
             if "tab_id" not in input_data:
                 return BrowserAction(
-                    action="failure",
+                    action=BrowserActionType.FAILURE,
                     reasoning=reasoning,
-                    text=input_data.get("error", "No tab id for switch_tab function call"),
+                    text=input_data.get(
+                        "error", "No tab id for switch_tab function call"
+                    ),
                     coordinate=None,
                     id=last_message.id,
                 )
             return BrowserAction(
-                action="switch_tab",
+                action=BrowserActionType.SWITCH_TAB,
                 reasoning=reasoning,
                 text=input_data["tab_id"],
                 coordinate=None,
                 id=last_message.id,
             )
 
-
         if last_message.name != "computer":
             return BrowserAction(
-                action="failure",
+                action=BrowserActionType.FAILURE,
                 reasoning=reasoning,
                 text="Wrong message called",
                 coordinate=None,
@@ -649,7 +651,7 @@ Using the supporting contextual data:
             case "key" | "type":
                 if not text:
                     return BrowserAction(
-                        action="failure",
+                        action=BrowserActionType.FAILURE,
                         reasoning=reasoning,
                         text=f"No text provided for {action}",
                         coordinate=None,
@@ -661,7 +663,7 @@ Using the supporting contextual data:
                     text_lower = text.lower().strip()
                     if text_lower in ("page_down", "pagedown"):
                         return BrowserAction(
-                            action="scroll_down",
+                            action=BrowserActionType.SCROLL_DOWN,
                             reasoning=reasoning,
                             coordinate=None,
                             text=None,
@@ -669,7 +671,7 @@ Using the supporting contextual data:
                         )
                     if text_lower in ("page_up", "pageup"):
                         return BrowserAction(
-                            action="scroll_up",
+                            action=BrowserActionType.SCROLL_UP,
                             reasoning=reasoning,
                             coordinate=None,
                             text=None,
@@ -677,7 +679,11 @@ Using the supporting contextual data:
                         )
 
                 return BrowserAction(
-                    action=action,
+                    action=(
+                        BrowserActionType.KEY
+                        if action == "key"
+                        else BrowserActionType.TYPE
+                    ),
                     reasoning=reasoning,
                     text=text,
                     coordinate=None,
@@ -687,7 +693,7 @@ Using the supporting contextual data:
             case "mouse_move":
                 if not coordinate:
                     return BrowserAction(
-                        action="failure",
+                        action=BrowserActionType.FAILURE,
                         reasoning=reasoning,
                         text="No coordinate provided",
                         coordinate=None,
@@ -696,7 +702,7 @@ Using the supporting contextual data:
                 if isinstance(coordinate, str):
                     print(last_message)
                     return BrowserAction(
-                        action="failure",
+                        action=BrowserActionType.FAILURE,
                         reasoning=reasoning,
                         text="Coordinate is a string, not array of integers.",
                         coordinate=None,
@@ -718,7 +724,7 @@ Using the supporting contextual data:
                 if distance_moved <= self.mouse_jitter_reduction:
                     print("Minimal mouse movement detected, considering as jitter.")
                     return BrowserAction(
-                        action="left_click",
+                        action=BrowserActionType.LEFT_CLICK,
                         reasoning=reasoning,
                         coordinate=None,
                         text=None,
@@ -726,7 +732,7 @@ Using the supporting contextual data:
                     )
 
                 return BrowserAction(
-                    action=action,
+                    action=BrowserActionType.MOUSE_MOVE,
                     reasoning=reasoning,
                     coordinate=browser_coordinates,
                     text=None,
@@ -736,7 +742,7 @@ Using the supporting contextual data:
             case "left_click_drag":
                 if not coordinate:
                     return BrowserAction(
-                        action="failure",
+                        action=BrowserActionType.FAILURE,
                         reasoning=reasoning,
                         text="No coordinate provided",
                         coordinate=None,
@@ -748,7 +754,7 @@ Using the supporting contextual data:
                 )
 
                 return BrowserAction(
-                    action=action,
+                    action=BrowserActionType.LEFT_CLICK_DRAG,
                     reasoning=reasoning,
                     coordinate=browser_coordinates,
                     text=None,
@@ -763,8 +769,17 @@ Using the supporting contextual data:
                 | "screenshot"
                 | "cursor_position"
             ):
+                action_type = {
+                    "left_click": BrowserActionType.LEFT_CLICK,
+                    "right_click": BrowserActionType.RIGHT_CLICK,
+                    "middle_click": BrowserActionType.MIDDLE_CLICK,
+                    "double_click": BrowserActionType.DOUBLE_CLICK,
+                    "screenshot": BrowserActionType.SCREENSHOT,
+                    "cursor_position": BrowserActionType.CURSOR_POSITION,
+                }[action]
+
                 return BrowserAction(
-                    action=action,
+                    action=action_type,
                     reasoning=reasoning,
                     coordinate=None,
                     text=None,
@@ -773,7 +788,7 @@ Using the supporting contextual data:
 
             case _:
                 return BrowserAction(
-                    action="failure",
+                    action=BrowserActionType.FAILURE,
                     reasoning=reasoning,
                     text=f"Unsupported computer action: {action}",
                     coordinate=None,
@@ -812,8 +827,6 @@ Using the supporting contextual data:
         messages = self.format_into_messages(
             goal, additional_context, current_state, session_history
         )
-
-        # self.print_messages_without_screenshots(messages)
 
         scaling = self.get_scaling_ratio(
             Coordinate(x=current_state.width, y=current_state.height)
@@ -883,41 +896,19 @@ Using the supporting contextual data:
 
         return action
 
-    def print_messages_without_screenshots(self, msg: list[BetaMessageParam]) -> None:
-        """Prints messages after removing all screenshot image types."""
+    def flatten_browser_step_to_action(self, step: BrowserStep) -> dict[str, Any]:
+        if step.action.action == BrowserActionType.SCROLL_DOWN:
+            return {"action": "key", "text": "Page_Down"}
 
-        msg_copy = deepcopy(msg)
-        for message in msg_copy:
-            if "content" in message:
-                for outer_content in message["content"]:
-                    if "content" in outer_content:
-                        outer_content["content"] = [
-                            content
-                            for content in outer_content["content"]
-                            if content["type"] != "image"
-                        ]
+        elif step.action.action == BrowserActionType.SCROLL_UP:
+            return {"action": "key", "text": "Page_Up"}
 
-        for message in msg_copy:
-            print(json.dumps(message, indent=2))
-
-    def flatten_browser_step_to_action(self, step: BrowserStep) -> Dict:
-        if (step.action.action == 'scroll_down'):
-            return {
-                "action": "key",
-                "text": "Page_Down"
-            }
-        
-        if (step.action.action == 'scroll_up'):
-            return {
-                "action": "key",
-                "text": "Page_Up"
-            }
-        
-        val = {
+        val: dict[str, Any] = {
             "action": step.action.action,
         }
         if step.action.text:
             val["text"] = step.action.text
+
         if step.action.coordinate:
             img_dim = Coordinate(x=step.state.width, y=step.state.height)
             scaling = self.get_scaling_ratio(img_dim)
@@ -925,5 +916,5 @@ Using the supporting contextual data:
                 step.action.coordinate, scaling
             )
             val["coordinate"] = [llm_coordinates.x, llm_coordinates.y]
-        
+
         return val
