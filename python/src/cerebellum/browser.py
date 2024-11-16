@@ -60,6 +60,18 @@ class ScrollBar:
 
 
 @dataclass(frozen=True)
+class BrowserTab:
+    """Information about one browser tab"""
+
+    handle: str
+    url: str
+    title: str
+    active: bool
+    new: bool
+    id: int
+
+
+@dataclass
 class BrowserState:
     """Comprehensive capture of browser state"""
 
@@ -67,28 +79,39 @@ class BrowserState:
     height: int
     width: int
     scrollbar: ScrollBar
-    url: str
+    tabs: list[BrowserTab]
+    active_tab: str
     mouse: Coordinate
+
+
+from enum import Enum
+
+
+class BrowserActionType(str, Enum):
+    """Enum of possible browser actions."""
+
+    SUCCESS = "success"
+    FAILURE = "failure"
+    KEY = "key"
+    TYPE = "type"
+    MOUSE_MOVE = "mouse_move"
+    LEFT_CLICK = "left_click"
+    LEFT_CLICK_DRAG = "left_click_drag"
+    RIGHT_CLICK = "right_click"
+    MIDDLE_CLICK = "middle_click"
+    DOUBLE_CLICK = "double_click"
+    SCREENSHOT = "screenshot"
+    CURSOR_POSITION = "cursor_position"
+    SWITCH_TAB = "switch_tab"
+    SCROLL_DOWN = "scroll_down"
+    SCROLL_UP = "scroll_up"
 
 
 @dataclass(frozen=True)
 class BrowserAction:
     """An action to be performed on the browser."""
 
-    action: Literal[
-        "success",
-        "failure",
-        "key",
-        "type",
-        "mouse_move",
-        "left_click",
-        "left_click_drag",
-        "right_click",
-        "middle_click",
-        "double_click",
-        "screenshot",
-        "cursor_position",
-    ]
+    action: BrowserActionType
     coordinate: Coordinate | None
     text: str | None
     reasoning: str
@@ -171,6 +194,7 @@ class BrowserAgent:
         self.max_steps = 50
         self._status = BrowserGoalState.INITIAL
         self.history: list[BrowserStep] = []
+        self.tabs: dict[str, BrowserTab] = {}
 
         # Set options if supplied
         if options:
@@ -194,17 +218,51 @@ class BrowserAgent:
             "return { x: window.innerWidth, y: window.innerHeight }"
         )
         screenshot = self.driver.get_screenshot_as_base64()
-        url = self.driver.current_url
 
         mouse_position = self.get_mouse_position()
         scroll_position = self.get_scroll_position()
+
+        tabs = self.driver.window_handles
+        current_tab = self.driver.current_window_handle
+        browser_tabs = []
+
+        for tab in tabs:
+            self.driver.switch_to.window(tab)
+            tab_url = self.driver.current_url
+            tab_title = self.driver.title
+            is_active = tab == current_tab
+
+            if tab in self.tabs:
+                tab_id = self.tabs[tab].id
+                is_new = False
+            else:
+                tab_id = len(self.tabs)
+                is_new = True
+
+            # Update / create tab information
+            browser_tab = BrowserTab(
+                handle=tab,
+                url=tab_url,
+                title=tab_title,
+                active=is_active,
+                new=is_new,
+                id=tab_id,
+            )
+
+            self.tabs[tab] = browser_tab
+
+            browser_tabs.append(browser_tab)
+
+        # Switch back to the original active tab
+        self.driver.switch_to.window(current_tab)
 
         return BrowserState(
             screenshot=screenshot,
             height=viewport["y"],
             width=viewport["x"],
             scrollbar=scroll_position,
-            url=url,
+            tabs=browser_tabs,
+            active_tab=current_tab,
             mouse=mouse_position,
         )
 
@@ -261,7 +319,7 @@ class BrowserAgent:
         action_builder = ActionBuilder(self.driver)
 
         match action.action:
-            case "key":
+            case BrowserActionType.KEY:
                 if not action.text:
                     raise ValueError("Text is required for key action")
 
@@ -276,13 +334,13 @@ class BrowserAgent:
 
                 action_builder.perform()
 
-            case "type":
+            case BrowserActionType.TYPE:
                 if not action.text:
                     raise ValueError("Text is required for type action")
                 action_builder.key_action.send_keys(action.text)
                 action_builder.perform()
 
-            case "mouse_move":
+            case BrowserActionType.MOUSE_MOVE:
                 if not action.coordinate:
                     raise ValueError("Coordinate is required for mouse_move action")
                 action_builder.pointer_action.move_to_location(
@@ -290,11 +348,11 @@ class BrowserAgent:
                 )
                 action_builder.perform()
 
-            case "left_click":
+            case BrowserActionType.LEFT_CLICK:
                 action_builder.pointer_action.click()
                 action_builder.perform()
 
-            case "left_click_drag":
+            case BrowserActionType.LEFT_CLICK_DRAG:
                 if not action.coordinate:
                     raise ValueError(
                         "Coordinate is required for left_click_drag action"
@@ -306,28 +364,51 @@ class BrowserAgent:
                 action_builder.pointer_action.release()
                 action_builder.perform()
 
-            case "right_click":
+            case BrowserActionType.RIGHT_CLICK:
                 action_builder.pointer_action.context_click()
                 action_builder.perform()
 
-            case "middle_click":
+            case BrowserActionType.MIDDLE_CLICK:
                 print("Middle mouse click not supported")
 
-            case "double_click":
+            case BrowserActionType.DOUBLE_CLICK:
                 action_builder.pointer_action.double_click()
                 action_builder.perform()
 
-            case "screenshot" | "cursor_position":
+            case BrowserActionType.SCREENSHOT | BrowserActionType.CURSOR_POSITION:
                 # These are handled automatically
                 pass
 
-            case "scroll_down":
-                action_builder.wheel_action.scroll(0, 0, 0, int(3* last_state.height / 4))
+            case BrowserActionType.SCROLL_DOWN:
+                action_builder.wheel_action.scroll(
+                    0, 0, 0, int(3 * last_state.height / 4)
+                )
                 action_builder.perform()
 
-            case "scroll_up":
-                action_builder.wheel_action.scroll(0, 0, 0, int(3* -last_state.height / 4))
+            case BrowserActionType.SCROLL_UP:
+                action_builder.wheel_action.scroll(
+                    0, 0, 0, int(3 * -last_state.height / 4)
+                )
                 action_builder.perform()
+
+            case BrowserActionType.SWITCH_TAB:
+                if not action.text:
+                    raise ValueError("Text is required for switch_tab action")
+                print(self.tabs)
+                target_id = int(action.text)
+                tab_handle = next(
+                    (
+                        handle
+                        for handle, tab in self.tabs.items()
+                        if tab.id == target_id
+                    ),
+                    None,
+                )
+                print(action.text)
+                print(tab_handle)
+                if tab_handle is None:
+                    raise ValueError(f"No tab found with id: {action.text}")
+                self.driver.switch_to.window(tab_handle)
 
             case _:
                 raise ValueError(f"Unsupported action: {action.action}")
