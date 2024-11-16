@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cerebellum"
-version = "0.2.0"
+version = "0.2.2"
 description = "Browser automation through LLM planners"
 authors = ["TheRedSix"]
 packages = [{include = "cerebellum", from = "src"}]
@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/theredsix/cerebellum"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.9"
 selenium = "^4.0.0"
 seleniumbase = "^4.32.9"
 anthropic = "^0.39.0"
