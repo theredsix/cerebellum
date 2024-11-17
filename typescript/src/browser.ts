@@ -1,14 +1,15 @@
 import { WebDriver, Origin } from "selenium-webdriver";
 import { parseXdotool, pauseForInput } from './util';
 
-export type BrowserGoalState = 'initial' | 'running' | 'success' | 'failed'
+export type BrowserGoalState = 'initial' | 'running' | 'success' | 'failed';
 
 export interface BrowserState {
     screenshot: string;
     height: number;
     width: number;
     scrollbar: ScrollBar;
-    url: string;
+    tabs: BrowserTab[];
+    active_tab: string;
     mouse: Coordinate;
 }
 
@@ -17,9 +18,19 @@ export interface ScrollBar {
     height: number;
 }
 
+export interface BrowserTab {
+    handle: string;
+    url: string;
+    title: string;
+    active: boolean;
+    new: boolean;
+    id: number;
+}
+
 export interface BrowserAction {
     action: "success" | "failure" | "key" | "type" | "mouse_move" | "left_click" | "left_click_drag" |
-    "right_click" | "middle_click" | "double_click" | "screenshot" | "cursor_position" | "scroll_up" | "scroll_down";
+    "right_click" | "middle_click" | "double_click" | "screenshot" | "cursor_position" | "scroll_up" | 
+    "scroll_down" | "switch_tab";
     coordinate?: [number, number];
     text?: string;
     reasoning: string;
@@ -42,7 +53,7 @@ export abstract class ActionPlanner {
 }
 
 export interface BrowserAgentOptions {
-    additionalContext?:  string | Record<string, any>;
+    additionalContext?: string | Record<string, any>;
     additionalInstructions?: string[];
     waitAfterStepMS?: number;
     pauseAfterEachAction?: boolean;
@@ -53,21 +64,21 @@ export class BrowserAgent {
     public readonly driver: WebDriver;
     public readonly planner: ActionPlanner;
     public readonly goal: string;
-    public readonly additionalContext: string = "None";
-    public readonly additionalInstructions: string[] = [];
-    public readonly waitAfterStepMS: number = 500;
-    public readonly pauseAfterEachAction: boolean = false;
-    public readonly maxSteps: number = 50;
+    public additionalContext: string = "None";
+    public additionalInstructions: string[] = [];
+    public waitAfterStepMS: number = 500;
+    public pauseAfterEachAction: boolean = false;
+    public maxSteps: number = 50;
     private _status: BrowserGoalState = 'initial';
     public readonly history: BrowserStep[] = [];
+    public tabs: Record<string, BrowserTab> = {};
 
     constructor(driver: WebDriver, actionPlanner: ActionPlanner, goal: string, options?: BrowserAgentOptions) {
         this.driver = driver;
-
         this.planner = actionPlanner;
         this.goal = goal;
 
-        if (options) {   
+        if (options) {
             if (options.additionalContext !== undefined) {
                 if (typeof options.additionalContext !== "string") {
                     this.additionalContext = JSON.stringify(options.additionalContext);
@@ -78,14 +89,14 @@ export class BrowserAgent {
             if (options.additionalInstructions !== undefined) {
                 this.additionalInstructions = options.additionalInstructions;
             }
-            if (options.waitAfterStepMS  !== undefined) {
+            if (options.waitAfterStepMS !== undefined) {
                 this.waitAfterStepMS = options.waitAfterStepMS;
             }
             if (options.pauseAfterEachAction !== undefined) {
                 this.pauseAfterEachAction = options.pauseAfterEachAction;
             }
-            if (options.maxSteps) {
-                this.maxSteps = this.maxSteps;
+            if (options.maxSteps !== undefined) {
+                this.maxSteps = options.maxSteps;
             }
         }
     }
@@ -93,24 +104,57 @@ export class BrowserAgent {
     public async getState(): Promise<BrowserState> {
         const size = await this.driver.executeScript('return { x: window.innerWidth, y: window.innerHeight }') as Coordinate;
         const screenshot = await this.driver.takeScreenshot();
-        const url = await this.driver.getCurrentUrl();
-
-        // Default return when no response is required
         const mousePosition = await this.getMousePosition();
         const scrollPosition = await this.getScrollPosition();
+
+        const tabs = await this.driver.getAllWindowHandles();
+        const currentTab = await this.driver.getWindowHandle();
+        const browserTabs: BrowserTab[] = [];
+
+        for (const tab of tabs) {
+            await this.driver.switchTo().window(tab);
+            const tabUrl = await this.driver.getCurrentUrl();
+            const tabTitle = await this.driver.getTitle();
+            const isActive = tab === currentTab;
+
+            let tabId: number;
+            let isNew: boolean;
+            if (this.tabs[tab]) {
+                tabId = this.tabs[tab].id;
+                isNew = false;
+            } else {
+                tabId = Object.keys(this.tabs).length;
+                isNew = true;
+            }
+
+            const browserTab: BrowserTab = {
+                handle: tab,
+                url: tabUrl,
+                title: tabTitle,
+                active: isActive,
+                new: isNew,
+                id: tabId,
+            };
+
+            this.tabs[tab] = browserTab;
+            browserTabs.push(browserTab);
+        }
+
+        await this.driver.switchTo().window(currentTab);
 
         return {
             screenshot: screenshot,
             height: size.y,
             width: size.x,
             scrollbar: scrollPosition,
-            url: url,
+            tabs: browserTabs,
+            active_tab: currentTab,
             mouse: mousePosition,
         };
     }
 
     public async getAction(currentState: BrowserState): Promise<BrowserAction> {
-        return await this.planner.planAction(this.goal, this.additionalContext, this.additionalInstructions, currentState, this.history)
+        return await this.planner.planAction(this.goal, this.additionalContext, this.additionalInstructions, currentState, this.history);
     }
 
     public async getScrollPosition(): Promise<ScrollBar> {
@@ -119,7 +163,7 @@ export class BrowserAgent {
         return {
             height,
             offset,
-        }        
+        };
     }
 
     public async getMousePosition(): Promise<Coordinate> {
@@ -134,27 +178,18 @@ export class BrowserAgent {
 
         await this.driver.executeScript(listenScript);
 
-        // Small mouse movement to trigger event
         await this.driver.actions().move({x: 3, y: 3, origin: Origin.POINTER}).perform();
         await this.driver.actions().move({x: -3, y: -3, origin: Origin.POINTER}).perform();
         
-        // Give time for event to register
         await new Promise(resolve => setTimeout(resolve, 100));
 
         const [x, y] = (await this.driver.executeScript('return [window.last_mouse_x, window.last_mouse_y]')) as [number, number];
 
         if (typeof x === 'number' && typeof y === 'number') {
-            return {
-                x,
-                y,
-            }
+            return { x, y };
         }
 
-        // Return default coordinates if unable to get actual position
-        return {
-            x: 0,
-            y: 0,
-        };
+        return { x: 0, y: 0 };
     }
 
     public async takeAction(action: BrowserAction, lastState: BrowserState): Promise<void> {
@@ -164,7 +199,6 @@ export class BrowserAgent {
             case 'key':
                 if (!action.text) throw new Error('Text is required for key action');
 
-                // We need to untype Key which is implemented 
                 const parsedKeyStrokes = parseXdotool(action.text);
                 let keyAction = actions;
                 for (const modifier of parsedKeyStrokes.modifiers) {
@@ -197,20 +231,26 @@ export class BrowserAgent {
                 await actions.contextClick().perform();
                 break;
             case 'middle_click':
-                console.log('Middle mouse click not supported')
+                console.log('Middle mouse click not supported');
                 break;
             case 'double_click':
                 await actions.doubleClick().perform();
                 break;
             case 'screenshot':
             case 'cursor_position':
-                // Do nothing since we always report cursor position and take screenshot
                 break;
             case 'scroll_down':
                 await this.driver.executeScript(`window.scrollBy(0, ${lastState.height / 2})`);
                 break;
             case 'scroll_up':
                 await this.driver.executeScript(`window.scrollBy(0, -${lastState.height / 2})`);
+                break;
+            case 'switch_tab':
+                if (!action.text) throw new Error('Text is required for switch_tab action');
+                const targetId = parseInt(action.text);
+                const tabHandle = Object.keys(this.tabs).find(handle => this.tabs[handle].id === targetId);
+                if (!tabHandle) throw new Error(`No tab found with id: ${action.text}`);
+                await this.driver.switchTo().window(tabHandle);
                 break;
             default:
                 throw new Error(`Unsupported action: ${action.action}`);
@@ -219,7 +259,6 @@ export class BrowserAgent {
 
     public async step(): Promise<void> {
         const currentState = await this.getState();
-
         const nextAction = await this.getAction(currentState);
 
         if (nextAction.action === 'success') {
@@ -233,7 +272,6 @@ export class BrowserAgent {
             await this.takeAction(nextAction, currentState);
         }
 
-        // Push the history at the start of this step to currentState
         this.history.push({
             state: currentState,
             action: nextAction,
@@ -241,12 +279,10 @@ export class BrowserAgent {
     }
 
     public async start(): Promise<void> {
-        // Initialize the mouse inside the viewport
         await this.driver.actions().move({ x: 1, y: 1, origin: Origin.VIEWPORT }).perform();
 
         while (['initial', 'running'].includes(this._status) && this.history.length <= this.maxSteps) {
             await this.step();
-
             await this.driver.sleep(this.waitAfterStepMS);
 
             if (this.pauseAfterEachAction) {
