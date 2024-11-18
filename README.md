@@ -40,7 +40,7 @@ Please see setup directions for your language:
 - [x] Integrate Claude 3.5 Sonnet as a `ActionPlanner`
 - [x] Demonstrate successful `BrowserAgent` across a variety of tasks
 - [x] Create Python SDK
-- [ ] Handle tabbed browsing
+- [x] Handle tabbed browsing
 - [ ] Handle data extraction from website
 - [x] Improve vertical scrolling behavior
 - [ ] Improve horizontal scrolling behavior
