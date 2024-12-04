@@ -8,8 +8,8 @@ import json
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import StrEnum
-from typing import Any, Literal
+from enum import Enum
+from typing import Any, Optional, Union
 
 from cerebellum.utils import parse_xdotool, pause_for_input
 from selenium.webdriver import ActionChains
@@ -17,7 +17,7 @@ from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.remote.webdriver import WebDriver
 
 
-class BrowserGoalState(StrEnum):
+class BrowserGoalState(str, Enum):
     """Enumeration of browser automation states.
 
     This enum represents the possible states of a browser automation task.
@@ -112,8 +112,8 @@ class BrowserAction:
     """An action to be performed on the browser."""
 
     action: BrowserActionType
-    coordinate: Coordinate | None
-    text: str | None
+    coordinate: Optional[Coordinate]
+    text: Optional[str]
     reasoning: str
     id: str
 
@@ -157,11 +157,11 @@ class ActionPlanner(ABC):
 class BrowserAgentOptions:
     """Wrapper for BrowserAgent additional configuration options."""
 
-    additional_context: str | dict[str, Any] | None = None
-    additional_instructions: list[str] | None = None
-    wait_after_step_ms: int | None = None
-    pause_after_each_action: bool | None = None
-    max_steps: int | None = None
+    additional_context: Optional[Union[str, dict[str, Any]]] = None
+    additional_instructions: Optional[list[str]] = None
+    wait_after_step_ms: Optional[int] = None
+    pause_after_each_action: Optional[bool] = None
+    max_steps: Optional[int] = None
 
 
 class BrowserAgent:
@@ -182,7 +182,7 @@ class BrowserAgent:
         driver: WebDriver,
         action_planner: ActionPlanner,
         goal: str,
-        options: BrowserAgentOptions | None = None,
+        options: Optional[BrowserAgentOptions] = None,
     ) -> None:
         self.driver = driver
         self.planner = action_planner
@@ -318,116 +318,107 @@ class BrowserAgent:
         """Execute the specified browser action."""
         action_builder = ActionBuilder(self.driver)
 
-        match action.action:
-            case BrowserActionType.KEY:
-                if not action.text:
-                    raise ValueError("Text is required for key action")
+        if action.action == BrowserActionType.KEY:
+            if not action.text:
+                raise ValueError("Text is required for key action")
 
-                key_strokes = parse_xdotool(action.text)
+            key_strokes = parse_xdotool(action.text)
 
-                for modifier in key_strokes.modifiers:
-                    action_builder.key_action.key_down(modifier)
-                for key in key_strokes.keys:
-                    action_builder.key_action.send_keys(key)
-                for modifier in reversed(key_strokes.modifiers):
-                    action_builder.key_action.key_up(modifier)
+            for modifier in key_strokes.modifiers:
+                action_builder.key_action.key_down(modifier)
+            for key in key_strokes.keys:
+                action_builder.key_action.send_keys(key)
+            for modifier in reversed(key_strokes.modifiers):
+                action_builder.key_action.key_up(modifier)
 
-                action_builder.perform()
+            action_builder.perform()
 
-            case BrowserActionType.TYPE:
-                if not action.text:
-                    raise ValueError("Text is required for type action")
-                action_builder.key_action.send_keys(action.text)
-                action_builder.perform()
+        elif action.action == BrowserActionType.TYPE:
+            if not action.text:
+                raise ValueError("Text is required for type action")
+            action_builder.key_action.send_keys(action.text)
+            action_builder.perform()
 
-            case BrowserActionType.MOUSE_MOVE:
-                if not action.coordinate:
-                    raise ValueError("Coordinate is required for mouse_move action")
-                action_builder.pointer_action.move_to_location(
-                    action.coordinate.x, action.coordinate.y
-                )
-                action_builder.perform()
+        elif action.action == BrowserActionType.MOUSE_MOVE:
+            if not action.coordinate:
+                raise ValueError("Coordinate is required for mouse_move action")
+            action_builder.pointer_action.move_to_location(
+                action.coordinate.x, action.coordinate.y
+            )
+            action_builder.perform()
 
-            case BrowserActionType.LEFT_CLICK:
-                action_builder.pointer_action.click()
-                action_builder.perform()
+        elif action.action == BrowserActionType.LEFT_CLICK:
+            action_builder.pointer_action.click()
+            action_builder.perform()
 
-            case BrowserActionType.LEFT_CLICK_DRAG:
-                if not action.coordinate:
-                    raise ValueError(
-                        "Coordinate is required for left_click_drag action"
-                    )
-                action_builder.pointer_action.click_and_hold()
-                action_builder.pointer_action.move_by(
-                    action.coordinate.x, action.coordinate.y
-                )
-                action_builder.pointer_action.release()
-                action_builder.perform()
+        elif action.action == BrowserActionType.LEFT_CLICK_DRAG:
+            if not action.coordinate:
+                raise ValueError("Coordinate is required for left_click_drag action")
+            action_builder.pointer_action.click_and_hold()
+            action_builder.pointer_action.move_by(
+                action.coordinate.x, action.coordinate.y
+            )
+            action_builder.pointer_action.release()
+            action_builder.perform()
 
-            case BrowserActionType.RIGHT_CLICK:
-                action_builder.pointer_action.context_click()
-                action_builder.perform()
+        elif action.action == BrowserActionType.RIGHT_CLICK:
+            action_builder.pointer_action.context_click()
+            action_builder.perform()
 
-            case BrowserActionType.MIDDLE_CLICK:
-                print("Middle mouse click not supported")
+        elif action.action == BrowserActionType.MIDDLE_CLICK:
+            print("Middle mouse click not supported")
 
-            case BrowserActionType.DOUBLE_CLICK:
-                action_builder.pointer_action.double_click()
-                action_builder.perform()
+        elif action.action == BrowserActionType.DOUBLE_CLICK:
+            action_builder.pointer_action.double_click()
+            action_builder.perform()
 
-            case BrowserActionType.SCREENSHOT | BrowserActionType.CURSOR_POSITION:
-                # These are handled automatically
-                pass
+        elif (
+            action.action
+            == BrowserActionType.SCREENSHOT | BrowserActionType.CURSOR_POSITION
+        ):
+            # These are handled automatically
+            pass
 
-            case BrowserActionType.SCROLL_DOWN:
-                action_builder.wheel_action.scroll(
-                    0, 0, 0, int(3 * last_state.height / 4)
-                )
-                action_builder.perform()
+        elif action.action == BrowserActionType.SCROLL_DOWN:
+            action_builder.wheel_action.scroll(0, 0, 0, int(3 * last_state.height / 4))
+            action_builder.perform()
 
-            case BrowserActionType.SCROLL_UP:
-                action_builder.wheel_action.scroll(
-                    0, 0, 0, int(3 * -last_state.height / 4)
-                )
-                action_builder.perform()
+        elif action.action == BrowserActionType.SCROLL_UP:
+            action_builder.wheel_action.scroll(0, 0, 0, int(3 * -last_state.height / 4))
+            action_builder.perform()
 
-            case BrowserActionType.SWITCH_TAB:
-                if not action.text:
-                    raise ValueError("Text is required for switch_tab action")
-                print(self.tabs)
-                target_id = int(action.text)
-                tab_handle = next(
-                    (
-                        handle
-                        for handle, tab in self.tabs.items()
-                        if tab.id == target_id
-                    ),
-                    None,
-                )
-                print(action.text)
-                print(tab_handle)
-                if tab_handle is None:
-                    raise ValueError(f"No tab found with id: {action.text}")
-                self.driver.switch_to.window(tab_handle)
+        elif action.action == BrowserActionType.SWITCH_TAB:
+            if not action.text:
+                raise ValueError("Text is required for switch_tab action")
+            print(self.tabs)
+            target_id = int(action.text)
+            tab_handle = next(
+                (handle for handle, tab in self.tabs.items() if tab.id == target_id),
+                None,
+            )
+            print(action.text)
+            print(tab_handle)
+            if tab_handle is None:
+                raise ValueError(f"No tab found with id: {action.text}")
+            self.driver.switch_to.window(tab_handle)
 
-            case _:
-                raise ValueError(f"Unsupported action: {action.action}")
+        else:
+            raise ValueError(f"Unsupported action: {action.action}")
 
     def step(self) -> None:
         """Execute a single step of browser automation."""
         current_state = self.get_state()
         next_action = self.get_action(current_state)
 
-        match next_action.action:
-            case "success":
-                self._status = BrowserGoalState.SUCCESS
-                return
-            case "failure":
-                self._status = BrowserGoalState.FAILED
-                return
-            case _:
-                self._status = BrowserGoalState.RUNNING
-                self.take_action(next_action, current_state)
+        if next_action.action == "success":
+            self._status = BrowserGoalState.SUCCESS
+            return
+        elif next_action.action == "failure":
+            self._status = BrowserGoalState.FAILED
+            return
+        else:
+            self._status = BrowserGoalState.RUNNING
+            self.take_action(next_action, current_state)
 
         self.history.append(BrowserStep(state=current_state, action=next_action))
 

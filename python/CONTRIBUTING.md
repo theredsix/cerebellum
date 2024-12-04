@@ -8,10 +8,10 @@ Contributions are welcome, especially if the contribution helps to advance one o
 
 2. CD into the `/python` folder
 
-3. Install [pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#getting-pyenv) and set Python 3.11 as the local version:
+3. Install [pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#getting-pyenv) and set Python 3.9 as the local version:
    ```bash
-   pyenv install 3.11.0
-   pyenv virtualenv 3.11.0 cerebellum
+   pyenv install 3.9.0
+   pyenv virtualenv 3.9.0 cerebellum
    pyenv activate cerebellum
    ```
 
