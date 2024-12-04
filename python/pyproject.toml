@@ -14,6 +14,8 @@ seleniumbase = "^4.32.9"
 anthropic = "^0.39.0"
 pillow = "^11.0.0"
 numpy = "^2.0.2"
+openai = "=1.55.3"
+httpx = "=0.27.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
