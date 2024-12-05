@@ -1,12 +1,12 @@
 import sys
 import termios
 import tty
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 from selenium.webdriver.common.keys import Keys
 
 
-def pause_for_input(prompt: str | None = None) -> bool:
+def pause_for_input(prompt: Optional[str] = None) -> bool:
     """Pause execution for keyboard input.
 
     This function temporarily changes terminal input to read every key, without

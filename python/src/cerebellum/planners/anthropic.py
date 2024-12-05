@@ -15,11 +15,10 @@ import base64
 import io
 import json
 import random
-from copy import deepcopy
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from math import floor
-from typing import Any, Dict, cast
+from typing import Any, cast, Optional, Union
 
 from anthropic import Anthropic
 from anthropic.types.beta import (
@@ -73,11 +72,11 @@ class AnthropicPlannerOptions:
         debug_image_path: Path to save debug images.
     """
 
-    screenshot_history: int | None = None
-    mouse_jitter_reduction: int | None = None
-    api_key: str | None = None
-    client: Anthropic | None = None
-    debug_image_path: str | None = None
+    screenshot_history: Optional[int] = None
+    mouse_jitter_reduction: Optional[int] = None
+    api_key: Optional[str] = None
+    client: Optional[Anthropic] = None
+    debug_image_path: Optional[str] = None
 
 
 class AnthropicPlanner(ActionPlanner):
@@ -97,7 +96,7 @@ class AnthropicPlanner(ActionPlanner):
         debug: Whether debug mode is enabled
     """
 
-    def __init__(self, options: AnthropicPlannerOptions | None = None) -> None:
+    def __init__(self, options: Optional[AnthropicPlannerOptions] = None) -> None:
         """Initializes the Anthropic planner.
 
         Args:
@@ -105,7 +104,7 @@ class AnthropicPlanner(ActionPlanner):
         """
         super().__init__()
 
-        self.client: Anthropic
+        # self.client: Anthropic
         if options and options.client:
             self.client = options.client
         elif options and options.api_key:
@@ -125,7 +124,7 @@ class AnthropicPlanner(ActionPlanner):
         )
         self.input_token_usage: int = 0
         self.output_token_usage: int = 0
-        self.debug_image_path: str | None = (
+        self.debug_image_path: Optional[str] = (
             options.debug_image_path if options else None
         )
         self.debug: bool = False
@@ -314,7 +313,6 @@ The user will ask you to perform a task and you should use their browser to do s
 
         width_ratio = orig_size.x / new_width
         height_ratio = orig_size.y / new_height
-
         return ScalingRatio(
             ratio_x=width_ratio,
             ratio_y=height_ratio,
@@ -373,7 +371,7 @@ The user will ask you to perform a task and you should use their browser to do s
             A formatted message object compatible with Anthropic's API
         """
         result_text = ""
-        content_sub_msg: list[BetaTextBlockParam | BetaImageBlockParam] = []
+        content_sub_msg: list[Union[BetaTextBlockParam, BetaImageBlockParam]] = []
 
         if options.mouse_position:
             img_dim = Coordinate(x=current_state.width, y=current_state.height)
@@ -505,7 +503,7 @@ Using the supporting contextual data:
             # Update tool ID for next action
             tool_id = past_step.action.id or self.create_tool_use_id()
 
-            inner_content = []
+            inner_content: list[Union[BetaTextBlockParam, BetaToolUseBlockParam]] = []
 
             inner_content.append(
                 {
@@ -519,7 +517,8 @@ Using the supporting contextual data:
             action_msg: BetaMessageParam = {
                 "role": "assistant",
                 "content": cast(
-                    list[BetaTextBlockParam | BetaToolUseBlockParam], inner_content
+                    list[Union[BetaTextBlockParam, BetaToolUseBlockParam]],
+                    inner_content,
                 ),
             }
             messages.append(action_msg)
@@ -611,7 +610,9 @@ Using the supporting contextual data:
             return BrowserAction(
                 action=BrowserActionType.SWITCH_TAB,
                 reasoning=reasoning,
-                text=input_data["tab_id"],
+                text=str(
+                    input_data["tab_id"]
+                ),  # Convert to string since text is Optional[str]
                 coordinate=None,
                 id=last_message.id,
             )
@@ -627,8 +628,8 @@ Using the supporting contextual data:
 
         input_data = cast(dict, last_message.input)
         action = input_data.get("action", "")
-        coordinate: list[int] | None = input_data.get("coordinate")
-        text = input_data.get("text")
+        coordinate: Optional[list[int]] = input_data.get("coordinate")  # Make Optional
+        text: Optional[str] = input_data.get("text")  # Make Optional
 
         if isinstance(coordinate, str):
             print("Coordinate is a string:", coordinate)
@@ -647,153 +648,150 @@ Using the supporting contextual data:
             elif isinstance(coordinate, list):
                 coordinate = (coordinate[0], coordinate[1])
 
-        match action:
-            case "key" | "type":
-                if not text:
-                    return BrowserAction(
-                        action=BrowserActionType.FAILURE,
-                        reasoning=reasoning,
-                        text=f"No text provided for {action}",
-                        coordinate=None,
-                        id=last_message.id,
-                    )
-
-                if action == "key":
-                    # Handle special key mappings from utils.parse_xdotool
-                    text_lower = text.lower().strip()
-                    if text_lower in ("page_down", "pagedown"):
-                        return BrowserAction(
-                            action=BrowserActionType.SCROLL_DOWN,
-                            reasoning=reasoning,
-                            coordinate=None,
-                            text=None,
-                            id=last_message.id,
-                        )
-                    if text_lower in ("page_up", "pageup"):
-                        return BrowserAction(
-                            action=BrowserActionType.SCROLL_UP,
-                            reasoning=reasoning,
-                            coordinate=None,
-                            text=None,
-                            id=last_message.id,
-                        )
-
+        if action == "key" or action == "type":
+            if not text:
                 return BrowserAction(
-                    action=(
-                        BrowserActionType.KEY
-                        if action == "key"
-                        else BrowserActionType.TYPE
-                    ),
+                    action=BrowserActionType.FAILURE,
                     reasoning=reasoning,
-                    text=text,
+                    text=f"No text provided for {action}",
                     coordinate=None,
                     id=last_message.id,
                 )
 
-            case "mouse_move":
-                if not coordinate:
+            if action == "key":
+                # Handle special key mappings from utils.parse_xdotool
+                text_lower = text.lower().strip()
+                if text_lower in ("page_down", "pagedown"):
                     return BrowserAction(
-                        action=BrowserActionType.FAILURE,
+                        action=BrowserActionType.SCROLL_DOWN,
                         reasoning=reasoning,
-                        text="No coordinate provided",
                         coordinate=None,
+                        text=None,
                         id=last_message.id,
                     )
-                if isinstance(coordinate, str):
-                    print(last_message)
+                if text_lower in ("page_up", "pageup"):
                     return BrowserAction(
-                        action=BrowserActionType.FAILURE,
-                        reasoning=reasoning,
-                        text="Coordinate is a string, not array of integers.",
-                        coordinate=None,
-                        id=last_message.id,
-                    )
-
-                browser_coordinates = self.llm_to_browser_coordinates(
-                    Coordinate(x=coordinate[0], y=coordinate[1]), scaling
-                )
-
-                # Calculate the distance moved
-                distance_moved = (
-                    (browser_coordinates.x - current_state.mouse.x) ** 2
-                    + (browser_coordinates.y - current_state.mouse.y) ** 2
-                ) ** 0.5
-                print(f"Distance moved: {distance_moved}")
-
-                # Check if the movement is within a minimal threshold to consider as jitter
-                if distance_moved <= self.mouse_jitter_reduction:
-                    print("Minimal mouse movement detected, considering as jitter.")
-                    return BrowserAction(
-                        action=BrowserActionType.LEFT_CLICK,
+                        action=BrowserActionType.SCROLL_UP,
                         reasoning=reasoning,
                         coordinate=None,
                         text=None,
                         id=last_message.id,
                     )
 
-                return BrowserAction(
-                    action=BrowserActionType.MOUSE_MOVE,
-                    reasoning=reasoning,
-                    coordinate=browser_coordinates,
-                    text=None,
-                    id=last_message.id,
-                )
+            return BrowserAction(
+                action=(
+                    BrowserActionType.KEY if action == "key" else BrowserActionType.TYPE
+                ),
+                reasoning=reasoning,
+                text=text,
+                coordinate=None,
+                id=last_message.id,
+            )
 
-            case "left_click_drag":
-                if not coordinate:
-                    return BrowserAction(
-                        action=BrowserActionType.FAILURE,
-                        reasoning=reasoning,
-                        text="No coordinate provided",
-                        coordinate=None,
-                        id=last_message.id,
-                    )
-
-                browser_coordinates = self.llm_to_browser_coordinates(
-                    Coordinate(x=coordinate[0], y=coordinate[1]), scaling
-                )
-
-                return BrowserAction(
-                    action=BrowserActionType.LEFT_CLICK_DRAG,
-                    reasoning=reasoning,
-                    coordinate=browser_coordinates,
-                    text=None,
-                    id=last_message.id,
-                )
-
-            case (
-                "left_click"
-                | "right_click"
-                | "middle_click"
-                | "double_click"
-                | "screenshot"
-                | "cursor_position"
-            ):
-                action_type = {
-                    "left_click": BrowserActionType.LEFT_CLICK,
-                    "right_click": BrowserActionType.RIGHT_CLICK,
-                    "middle_click": BrowserActionType.MIDDLE_CLICK,
-                    "double_click": BrowserActionType.DOUBLE_CLICK,
-                    "screenshot": BrowserActionType.SCREENSHOT,
-                    "cursor_position": BrowserActionType.CURSOR_POSITION,
-                }[action]
-
-                return BrowserAction(
-                    action=action_type,
-                    reasoning=reasoning,
-                    coordinate=None,
-                    text=None,
-                    id=last_message.id,
-                )
-
-            case _:
+        elif action == "mouse_move":
+            if not coordinate:
                 return BrowserAction(
                     action=BrowserActionType.FAILURE,
                     reasoning=reasoning,
-                    text=f"Unsupported computer action: {action}",
+                    text="No coordinate provided",
                     coordinate=None,
                     id=last_message.id,
                 )
+            if isinstance(coordinate, str):
+                print(last_message)
+                return BrowserAction(
+                    action=BrowserActionType.FAILURE,
+                    reasoning=reasoning,
+                    text="Coordinate is a string, not array of integers.",
+                    coordinate=None,
+                    id=last_message.id,
+                )
+
+            browser_coordinates = self.llm_to_browser_coordinates(
+                Coordinate(x=coordinate[0], y=coordinate[1]), scaling
+            )
+
+            # Calculate the distance moved
+            distance_moved = (
+                (browser_coordinates.x - current_state.mouse.x) ** 2
+                + (browser_coordinates.y - current_state.mouse.y) ** 2
+            ) ** 0.5
+            print(f"Distance moved: {distance_moved}")
+
+            # Check if the movement is within a minimal threshold to consider as jitter
+            if distance_moved <= self.mouse_jitter_reduction:
+                print("Minimal mouse movement detected, considering as jitter.")
+                return BrowserAction(
+                    action=BrowserActionType.LEFT_CLICK,
+                    reasoning=reasoning,
+                    coordinate=None,
+                    text=None,
+                    id=last_message.id,
+                )
+
+            return BrowserAction(
+                action=BrowserActionType.MOUSE_MOVE,
+                reasoning=reasoning,
+                coordinate=browser_coordinates,
+                text=None,
+                id=last_message.id,
+            )
+
+        elif action == "left_click_drag":
+            if not coordinate:
+                return BrowserAction(
+                    action=BrowserActionType.FAILURE,
+                    reasoning=reasoning,
+                    text="No coordinate provided",
+                    coordinate=None,
+                    id=last_message.id,
+                )
+
+            browser_coordinates = self.llm_to_browser_coordinates(
+                Coordinate(x=coordinate[0], y=coordinate[1]), scaling
+            )
+
+            return BrowserAction(
+                action=BrowserActionType.LEFT_CLICK_DRAG,
+                reasoning=reasoning,
+                coordinate=browser_coordinates,
+                text=None,
+                id=last_message.id,
+            )
+
+        elif action in (
+            "left_click",
+            "right_click",
+            "middle_click",
+            "double_click",
+            "screenshot",
+            "cursor_position",
+        ):
+            action_type = {
+                "left_click": BrowserActionType.LEFT_CLICK,
+                "right_click": BrowserActionType.RIGHT_CLICK,
+                "middle_click": BrowserActionType.MIDDLE_CLICK,
+                "double_click": BrowserActionType.DOUBLE_CLICK,
+                "screenshot": BrowserActionType.SCREENSHOT,
+                "cursor_position": BrowserActionType.CURSOR_POSITION,
+            }[action]
+
+            return BrowserAction(
+                action=action_type,
+                reasoning=reasoning,
+                coordinate=None,
+                text=None,
+                id=last_message.id,
+            )
+
+        else:
+            return BrowserAction(
+                action=BrowserActionType.FAILURE,
+                reasoning=reasoning,
+                text=f"Unsupported computer action: {action}",
+                coordinate=None,
+                id=last_message.id,
+            )
 
     def plan_action(
         self,

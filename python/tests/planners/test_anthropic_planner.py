@@ -22,8 +22,9 @@ def planner(mock_anthropic_client):
     return AnthropicPlanner(options)
 
 
-def test_init_with_default_options():
-    planner = AnthropicPlanner()
+@patch("cerebellum.planners.anthropic.Anthropic")
+def test_init_with_default_options(mock_anthropic):
+    planner = AnthropicPlanner(AnthropicPlannerOptions())
     assert planner.screenshot_history == 1
     assert planner.mouse_jitter_reduction == 5
     assert planner.input_token_usage == 0
@@ -32,11 +33,14 @@ def test_init_with_default_options():
     assert planner.debug is False
 
 
-def test_init_with_custom_options():
+@patch("cerebellum.planners.anthropic.Anthropic")
+def test_init_with_custom_options(mock_anthropic):
+    mock_client = Mock()
     options = AnthropicPlannerOptions(
         screenshot_history=2,
         mouse_jitter_reduction=10,
         debug_image_path="/tmp/debug.png",
+        client=mock_client,
     )
     planner = AnthropicPlanner(options)
     assert planner.screenshot_history == 2
@@ -51,24 +55,31 @@ def test_create_tool_use_id(planner):
 
 
 def test_browser_to_llm_coordinates(planner):
-    scaling = Mock()
-    scaling.ratio_x = 2  # Set ratio_x to return 2
-    scaling.ratio_y = 2  # Set ratio_y to return 2
-    scaling.new_size = Coordinate(x=100, y=100)
+    scaling = ScalingRatio(
+        ratio_x=2.0,
+        ratio_y=2.0,
+        old_size=Coordinate(x=200, y=200),
+        new_size=Coordinate(x=100, y=100),
+    )
 
-    result = planner.browser_to_llm_coordinates(Coordinate(x=200, y=200), scaling)
+    browser_coords = Coordinate(x=200, y=200)
+    result = planner.browser_to_llm_coordinates(browser_coords, scaling)
 
-    assert result.x == 100
-    assert result.y == 100
+    assert result.x == 100  # 200/2
+    assert result.y == 100  # 200/2
 
 
 def test_llm_to_browser_coordinates(planner):
-    scaling = Mock()
-    scaling.ratio_x = 2  # Set ratio_x to return 2
-    scaling.ratio_y = 2  # Set ratio_y to return 2
-    scaling.old_size = Coordinate(x=200, y=200)
+    scaling = ScalingRatio(
+        ratio_x=2.0,
+        ratio_y=2.0,
+        old_size=Coordinate(x=200, y=200),
+        new_size=Coordinate(x=100, y=100),
+    )
 
-    result = planner.llm_to_browser_coordinates(Coordinate(x=50, y=50), scaling)
+    llm_coords = Coordinate(x=50, y=50)
+    result = planner.llm_to_browser_coordinates(llm_coords, scaling)
 
-    assert result.x == 100
-    assert result.y == 100
+    # Result should be clamped between 1 and old_size
+    assert result.x == 100  # min(max(floor(50 * 2), 1), 200)
+    assert result.y == 100  # min(max(floor(50 * 2), 1), 200)
