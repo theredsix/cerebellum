@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cerebellum"
-version = "0.2.2"
+version = "0.2.3"
 description = "Browser automation through LLM planners"
 authors = ["TheRedSix"]
 packages = [{include = "cerebellum", from = "src"}]
