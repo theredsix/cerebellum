@@ -81,6 +81,7 @@ class BrowserState:
     scrollbar: ScrollBar
     tabs: list[BrowserTab]
     active_tab: str
+    active_element: Union[tuple[Coordinate, Coordinate], None]
     mouse: Coordinate
 
 
@@ -256,6 +257,26 @@ class BrowserAgent:
         # Switch back to the original active tab
         self.driver.switch_to.window(current_tab)
 
+        # Get active element and its bounding box
+        active_element: tuple[Coordinate, Coordinate] | None = None
+        
+        try:
+            element = self.driver.switch_to.active_element
+            if element and element.tag_name not in ["body", "iframe", "frame", "document"]:
+                rect = self.driver.execute_script(
+                    "return arguments[0].getBoundingClientRect();", 
+                    element
+                )
+                print(rect)
+                active_element = (
+                    Coordinate(x=rect["x"],     y=rect["y"]),
+                    Coordinate(x=rect["width"], y=rect["height"])
+                )
+        except:
+            pass
+
+        print(active_element)
+
         return BrowserState(
             screenshot=screenshot,
             height=viewport["y"],
@@ -263,6 +284,7 @@ class BrowserAgent:
             scrollbar=scroll_position,
             tabs=browser_tabs,
             active_tab=current_tab,
+            active_element=active_element,
             mouse=mouse_position,
         )
 
