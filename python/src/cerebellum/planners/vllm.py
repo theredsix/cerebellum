@@ -1,6 +1,6 @@
-"""Anthropic planner module for browser automation.
+"""vLLM planner module for browser automation.
 
-This module provides the AnthropicPlanner class which uses Anthropic's Claude API
+This module provides the vLLMPlanner class which uses vLLM's OpenAI compatible API
 to control browser actions. It handles screenshot analysis, coordinate transformations,
 and maintains browser state.
 
@@ -12,22 +12,18 @@ Typical usage example:
 """
 
 import base64
+import copy
 import io
 import json
 import random
+import requests
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from math import floor
 from typing import Any, cast, Optional, Union
 
-from anthropic import Anthropic
-from anthropic.types.beta import (
-    BetaImageBlockParam,
-    BetaMessage,
-    BetaMessageParam,
-    BetaTextBlockParam,
-    BetaToolUseBlockParam,
-)
+from openai import Client
+import openai.types.chat as chat
 from cerebellum.browser import (
     ActionPlanner,
     BrowserAction,
@@ -37,11 +33,270 @@ from cerebellum.browser import (
     Coordinate,
     ScrollBar,
 )
-from PIL import Image
+from PIL import Image, ImageDraw
 from cerebellum.planners.shared import CURSOR_BYTES, MsgOptions, ScalingRatio
+from typing import Literal, Union
+from pydantic import BaseModel, Field
+
+class vLLMPotentialAction(BaseModel):
+    potential_action_1: str
+    potential_action_2: str
+    potential_action_3: str
+    potential_action_4: str
+    potential_action_5: str
+
+class vLLMAction(BaseModel):
+    action: BrowserActionType
+    coordinate: Coordinate
+    text: str
+
+class TypeStr(BaseModel):
+    name: Literal["type"]
+    text: str
+
+class KeyStroke(BaseModel):
+    name: Literal["key"] 
+    text: str
+
+class MouseMove(BaseModel):
+    name: Literal["mouse_move"]
+    coordinate: list[int]
+
+class Wait(BaseModel):
+    name: Literal["wait"]
+    seconds: int
+
+class LeftClick(BaseModel):
+    name: Literal["left_click"]
+
+class LeftClickDrag(BaseModel):
+    name: Literal["left_click_drag"]
+    coordinate: list[float]
+
+class RightClick(BaseModel):
+    name: Literal["right_click"]
+
+class DoubleClick(BaseModel):
+    name: Literal["double_click"]
+
+class Screenshot(BaseModel):
+    name: Literal["screenshot"]
+
+class SwitchTab(BaseModel):
+    name: Literal["switch_tab"]
+    tab_id: int
+
+class StopBrowsing(BaseModel):
+    name: Literal["stop_browsing"] 
+    success: bool
+    error: Optional[str] = None
+
+
+class vLLMResponse(BaseModel):
+    review_of_prior_steps: str
+    current_state: str
+    current_mouse_analysis: str
+    current_active_element: str
+    potential_actions: vLLMPotentialAction
+    potential_action_analysis: str
+    next_action_plan: str
+    next_action: Union[MouseMove, LeftClick, TypeStr, KeyStroke, LeftClickDrag, RightClick, DoubleClick, Screenshot, Wait, SwitchTab, StopBrowsing] = Field(discriminator="name")
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "type",
+            "description": "Type a string of text on the keyboard.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "description": "The string of text to type.",
+                        "type": "string"
+                    }
+                },
+                "required": ["text"],
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "key",
+            "description": "Press a key or key-combination on the keyboard. This supports xdotool's `key` syntax. Examples: 'a', 'Return', 'alt+Tab', 'ctrl+s', 'Up', 'KP_0' (for the numpad 0 key).",
+            "parameters": {
+                "properties": {
+                    "text": {
+                        "description": "The key or key-combination to press.",
+                        "type": "string"
+                    }
+                },
+                "required": ["text"],
+                "type": "object"
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "type",
+            "description": "Type a string of text on the keyboard.",
+            "parameters": {
+                "properties": {
+                    "text": {
+                        "description": "The string of text to type.",
+                        "type": "string"
+                    }
+                },
+                "required": ["text"],
+                "type": "object"
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mouse_move",
+            "description": "Move the cursor to a specified (x, y) pixel coordinate on the screen.",
+            "parameters": {
+                "properties": {
+                    "coordinate": {
+                        "description": "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates to move the mouse to.",
+                        "type": "array"
+                    }
+                },
+                "required": ["coordinate"],
+                "type": "object"
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "left_click",
+            "description": "Click the left mouse button.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "left_click_drag",
+            "description": "Click and drag the cursor to a specified (x, y) pixel coordinate on the screen.",
+            "parameters": {
+                "properties": {
+                    "coordinate": {
+                        "description": "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates to drag the mouse to.",
+                        "type": "array"
+                    }
+                },
+                "required": ["coordinate"],
+                "type": "object"
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "right_click",
+            "description": "Click the right mouse button.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "double_click",
+            "description": "Double-click the left mouse button.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "switch_tab",
+            "description": "Call this function to switch the active browser tab to a new one",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "tab_id": {
+                        "type": "integer",
+                        "description": "The ID of the tab to switch to",
+                    },
+                },
+                "required": ["tab_id"],
+            },
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "stop_browsing",
+            "description": "Call this function when you have achieved the goal of the task.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "description": "Whether the task was successful",
+                    },
+                    "error": {
+                        "type": "string",
+                        "description": "The error message if the task was not successful",
+                    },
+                },
+                "required": ["success"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "screenshot",
+            "description": "Take a screenshot of the screen.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "wait",
+            "description": "Wait a number of seconds.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                     "seconds": {
+                        "description": "The number of seconds to wait.",
+                        "type": "integer"
+                    }
+                },
+                "required": ["seconds"],
+            }
+        }
+    }
+]
+
+
 
 @dataclass(frozen=True)
-class AnthropicPlannerOptions:
+class vLLMPlannerOptions:
     """Configuration options for the Anthropic planner.
 
     Args:
@@ -52,31 +307,35 @@ class AnthropicPlannerOptions:
         debug_image_path: Path to save debug images.
     """
 
+    model: str
+    server: str
     screenshot_history: Optional[int] = None
     mouse_jitter_reduction: Optional[int] = None
     api_key: Optional[str] = None
-    client: Optional[Anthropic] = None
     debug_image_path: Optional[str] = None
 
 
-class AnthropicPlanner(ActionPlanner):
-    """A planner that uses Anthropic's Claude API to control browser actions.
+
+class vLLMPlanner(ActionPlanner):
+    """A planner that uses  vLLM's OpenAI compatible API to control browser actions.
 
     This planner interfaces with Claude to interpret browser state and determine
     appropriate actions to achieve user goals. It handles screenshot analysis,
     mouse movements, keyboard input, and maintains context of the browsing session.
 
     Attributes:
-        client: The Anthropic API client instance
         screenshot_history: Number of previous screenshots to include in context
         mouse_jitter_reduction: Pixel threshold for reducing mouse movement jitter
         input_token_usage: Count of tokens used in API requests
         output_token_usage: Count of tokens used in API responses
         debug_image_path: Optional path to save debug screenshots
+        model: The model name used for vLLM
+        host: The host address for the vLLM API
+        port: The port number for the vLLM API
         debug: Whether debug mode is enabled
     """
 
-    def __init__(self, options: Optional[AnthropicPlannerOptions] = None) -> None:
+    def __init__(self, options: vLLMPlannerOptions) -> None:
         """Initializes the Anthropic planner.
 
         Args:
@@ -84,14 +343,9 @@ class AnthropicPlanner(ActionPlanner):
         """
         super().__init__()
 
-        # self.client: Anthropic
-        if options and options.client:
-            self.client = options.client
-        elif options and options.api_key:
-            self.client = Anthropic(api_key=options.api_key)
-        else:
-            self.client = Anthropic()
-
+        self.server = options.server
+        self.model = options.model
+        
         self.screenshot_history: int = (
             options.screenshot_history
             if options and options.screenshot_history is not None
@@ -112,7 +366,7 @@ class AnthropicPlanner(ActionPlanner):
     def format_system_prompt(
         self, goal: str, additional_context: str, additional_instructions: list[str]
     ) -> str:
-        """Formats the system prompt for the Anthropic model.
+        """Formats the system prompt for the model.
 
         Constructs a system prompt that provides instructions and context to the model
         about how to interact with the browser environment.
@@ -131,10 +385,16 @@ class AnthropicPlanner(ActionPlanner):
         prompt = f"""
 <SYSTEM_CAPABILITY>
 * You are a computer use tool that is controlling a browser in fullscreen mode to complete a goal for the user. The goal is listed below in <USER_TASK>.
-* The browser operates in fullscreen mode, meaning you cannot use standard browser UI elements like STOP, REFRESH, BACK, or the address bar. You must accomplish your task solely by interacting with the website's user interface or calling "switch_tab" or "stop_browsing"
+* The browser operates in fullscreen mode, meaning you must accomplish your task solely by interacting with the website's user interface or calling "switch_tab" or "stop_browsing"
+* All mouse coordinates are normalized to integers between 0 and 1000, where 0 represents the minimum position and 1000 represents the maximum position on both axes
 * After each action, you will be provided with mouse position, open tabs, and a screenshot of the active browser tab.
+* When reviewing past actions, you will receive:
+  - "prior_steps_summary": A summary of all actions taken so far in the session and their outcomes. This summary will NOT include the most recent attempted action which will be described separately for you to verify.
+  - "most_recent_attempted_action": The last action plan that was executed, which you should verify was completed successfully
 * Use the Page_down or Page_up keys to scroll through the webpage. If the website is scrollable, a gray rectangle-shaped scrollbar will appear on the right edge of the screenshot. Ensure you have scrolled through the entire page before concluding that content is unavailable.
 * The mouse cursor will appear as a black arrow in the screenshot. Use its position to confirm whether your mouse movement actions have been executed successfully. Ensure the cursor is correctly positioned over the intended UI element before executing a click command.
+* The active element (e.g. text input field, button, link) is outlined with a red bounding box. Use this visual indicator to confirm which element currently has focus and will receive keyboard input.
+* Some actions may take time to process - if clicking an element doesn't produce immediate results, wait briefly and take another screenshot to verify the outcome.
 * After each action, you will receive information about open browser tabs. This information will be in the form of a list of JSON objects, each representing a browser tab with the following fields:
   - "tab_id": An integer that identifies the tab within the browser. Use this ID to switch between tabs.
   - "title": A string representing the title of the webpage loaded in the tab.
@@ -144,12 +404,65 @@ class AnthropicPlanner(ActionPlanner):
 * The current date is {datetime.now().isoformat()}.
 </SYSTEM_CAPABILITY>
 
-The user will ask you to perform a task and you should use their browser to do so. After each step, analyze the screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.
+You have access to the following tools:
+<FUNCTION_CALLS>
+{json.dumps(tools, indent=2)}
+</FUNCTION_CALLS>
+
+<REASONING_PROCESS>
+The user will ask you to perform a task and you should use their browser to do so.For each action you take, you must follow this exact reasoning process:
+
+1. OBSERVATION:
+   - Understand the past steps taken to achieve the goal
+   - Verify if the last action was successful
+   - Record the past steps summary along with success of the last action in the "review_of_prior_steps" field
+   - Describe the current browser state, and screenshotas they relate to our goal in the "current_state" field
+   - Analyze mouse position relative to UI elements in "current_mouse_analysis"
+   - Analyze the active element (outlined in red rectangle) in "current_active_element" by describing:
+     * Element type (button, input field, link, etc.)
+     * Current value/state (text content, selected/unselected, enabled/disabled)
+     * Visibility status (fully visible, partially obscured, scrolled out of view)
+     * Size and position relative to viewport
+     * Interactive state (clickable, focusable, read-only)
+
+2. PLANNING:
+   - Generate 5 potential actions given the current screenshot that will bring you closer to the goal. These actions must align with a <FUNCTION_CALLS>
+   - Each potential action should be a concise, single-sentence description of an action that can be performed on the current screenshot. Only suggest actions that are immediately possible, not future steps.
+   - Record the potential actions in the "potential_action_N" field where N is the number of the potential action
+
+3. ANALYSIS:
+   - For each potential action, carefully evaluate if the action is possible given the current screenshot and if it will bring you closer to the goal
+   - Combine and record the analysis in the "potential_action_analysis" field
+
+4. DECISION:
+   - Select the single most appropriate potential action based on your analysis
+   - Explain why this element is the best choice for progressing toward the goal
+   - Describe exactly what you expect to change in the browser state after this action. Your description must be specific and measurable, not vague. For example:
+     * Good: "The username input field will contain 'johndoe@email.com'"
+     * Bad: "The login form will be filled out"
+     * Good: "The website will navigate to 'checkout'"
+     * Bad: "We'll proceed to checkout"
+     * Good: "The page will scroll down revealing the footer section"
+     * Bad: "We'll look for more content"
+   - Record the selected action along with the desired outcome in "next_action_plan" field
+
+5. ACTION:
+   - Convert your chosen action from "next_action_plan" into a tool call JSON format using one of the available <FUNCTION_CALLS> and store it in "next_action"
+
+You must structure your response following these exact steps before taking any action.
+</REASONING_PROCESS>
 
 <IMPORTANT>
-* After moving the mouse to the desired location, always perform a left-click to ensure the action is completed.
+* Move mouse to element's center before clicking.
+* Always target the center of an element's bounding box for mouse movements
+* Before issuing a 'type' action:
+  - Verify the target input field is the active element (outlined with a red bounding box)
+  - If not active, first move the mouse and click to focus the field
+  - Only proceed with typing once the field is properly focused and active
 * You will use information provided in user's <USER DATA> to fill out forms on the way to your goal.
 * Ensure that any UI element is completely visible on the screen before attempting to interact with it.
+* When clicking on elements, ensure the cursor tip is positioned in the center of the element, not on its edges.
+* If an element fails to respond after clicking, try adjusting the cursor position so the tip falls directly on the center of the element and try again.
 * {instructions}
 </IMPORTANT>"""
 
@@ -174,7 +487,7 @@ The user will ask you to perform a task and you should use their browser to do s
         return result
 
     def mark_screenshot(
-        self, img_buffer: bytes, mouse_position: Coordinate, scrollbar: ScrollBar
+        self, img_buffer: bytes, mouse_position: Coordinate, scrollbar: ScrollBar, active_element: Union[tuple[Coordinate, Coordinate], None]
     ) -> bytes:
         """Adds scrollbar and cursor overlays to a screenshot.
 
@@ -217,6 +530,29 @@ The user will ask you to perform a task and you should use their browser to do s
                 ),
                 cursor_img,
             )
+
+            # Draw bounding box around active element if it exists
+            if active_element:
+                draw = ImageDraw.Draw(composite)
+                
+                # Extract coordinates
+                top_left = active_element[0]
+                dimensions = active_element[1]
+
+                # Calculate box coordinates
+                x1 = top_left.x
+                y1 = top_left.y
+                x2 = x1 + dimensions.x
+                y2 = y1 + dimensions.y
+
+                # Ensure coordinates stay within image bounds
+                x1 = max(0, min(x1, width))
+                y1 = max(0, min(y1, height))
+                x2 = max(0, min(x2, width))
+                y2 = max(0, min(y2, height))
+                
+                # Draw red rectangle with width 2
+                draw.rectangle([(x1, y1), (x2, y2)], outline='red', width=2, fill=None)
 
             # Convert back to bytes
             output_buffer = io.BytesIO()
@@ -271,33 +607,22 @@ The user will ask you to perform a task and you should use their browser to do s
         """Calculates scaling ratios to standardize image dimensions.
 
         This function calculates the scaling ratio to standardize the image dimensions to
-        1280x800 while maintaining the aspect ratio. The ratio is original size / new size.
-        To get the new size from the ratio, multiply the original size by the inverse of
-        the ratio, or simply divide the original size by the ratio. To go from the new size
-        back to the original size, multiply the new size by the ratio.
-
+        1000x1000 without maintaining the aspect ratio.
         Args:
             orig_size: Coordinate object containing original width and height
 
         Returns:
             ScalingRatio object containing scale factors and dimensions
         """
-        aspect_ratio = orig_size.x / orig_size.y
-
-        if aspect_ratio > 1280 / 800:
-            new_width = 1280
-            new_height = floor(1280 / aspect_ratio)
-        else:
-            new_height = 800
-            new_width = floor(800 * aspect_ratio)
-
-        width_ratio = orig_size.x / new_width
-        height_ratio = orig_size.y / new_height
+        # Calculate scaling ratios to standardize to 1000x1000
+        width_ratio = orig_size.x / 1000
+        height_ratio = orig_size.y / 1000
+        
         return ScalingRatio(
             ratio_x=width_ratio,
             ratio_y=height_ratio,
             old_size=orig_size,
-            new_size=Coordinate(x=new_width, y=new_height),
+            new_size=Coordinate(x=1000, y=1000),
         )
 
     def browser_to_llm_coordinates(
@@ -336,7 +661,7 @@ The user will ask you to perform a task and you should use their browser to do s
 
     def format_state_into_msg(
         self, tool_call_id: str, current_state: BrowserState, options: MsgOptions
-    ) -> BetaMessageParam:
+    ) -> dict:
         """Formats browser state into a message for the LLM.
 
         Takes the current browser state and formats it into a message that can be sent to
@@ -351,7 +676,7 @@ The user will ask you to perform a task and you should use their browser to do s
             A formatted message object compatible with Anthropic's API
         """
         result_text = ""
-        content_sub_msg: list[Union[BetaTextBlockParam, BetaImageBlockParam]] = []
+        content_sub_msg: list[any] = []
 
         if options.mouse_position:
             img_dim = Coordinate(x=current_state.width, y=current_state.height)
@@ -379,7 +704,7 @@ The user will ask you to perform a task and you should use their browser to do s
                 img_buffer, Coordinate(x=current_state.width, y=current_state.height)
             )
             marked_image = self.mark_screenshot(
-                viewport_image, current_state.mouse, current_state.scrollbar
+                viewport_image, current_state.mouse, current_state.scrollbar, current_state.active_element
             )
             resized = self.resize_screenshot(marked_image)
 
@@ -389,29 +714,21 @@ The user will ask you to perform a task and you should use their browser to do s
 
             content_sub_msg.append(
                 {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/png",
-                        "data": base64.b64encode(resized).decode(),
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{base64.b64encode(resized).decode()}",
                     },
                 }
             )
 
-        if not result_text:  # Put a generic text explanation for no URL or result
-            result_text = "Action was performed."
+        if result_text:  # Put a generic text explanation for no URL or result
+            content_sub_msg.insert(0, {"type": "text", "text": result_text.strip()})
 
-        content_sub_msg.insert(0, {"type": "text", "text": result_text.strip()})
 
         return {
-            "role": "user",
-            "content": [
-                {
-                    "type": "tool_result",
-                    "tool_use_id": tool_call_id,
-                    "content": content_sub_msg,
-                }
-            ],
+            "role": "tool",
+            "content": content_sub_msg,
+            "tool_call_id": tool_call_id,
         }
 
     def format_into_messages(
@@ -420,7 +737,7 @@ The user will ask you to perform a task and you should use their browser to do s
         additional_context: str,
         current_state: BrowserState,
         session_history: list[BrowserStep],
-    ) -> list[BetaMessageParam]:
+    ) -> list[dict]:
         """Formats a complete conversation history into messages for the LLM.
 
         Takes the goal, context and browser history and formats them into a sequence of
@@ -438,7 +755,7 @@ The user will ask you to perform a task and you should use their browser to do s
         Raises:
             None
         """
-        messages: list[BetaMessageParam] = []
+        messages: list[Any] = []
         tool_id = self.create_tool_use_id()
 
         user_prompt = f"""Please complete the following task:
@@ -451,57 +768,71 @@ Using the supporting contextual data:
 {additional_context}
 </USER_DATA>"""
 
-        msg0: BetaMessageParam = {
+        msg0 = {
             "role": "user",
             "content": [{"type": "text", "text": user_prompt.strip()}],
         }
-        msg1: BetaMessageParam = {
-            "role": "assistant",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Grab a view of the browser to understand what is the starting website state.",
-                },
-                {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "computer",
-                    "input": {
-                        "action": "screenshot",
-                    },
-                },
-            ],
-        }
-        messages.extend([msg0, msg1])
 
-        for past_step in session_history:
-            options = MsgOptions(mouse_position=False, screenshot=False, tabs=False)
-
-            result_msg = self.format_state_into_msg(tool_id, past_step.state, options)
-            messages.append(result_msg)
+        if session_history:
+            last_step = session_history[-1]
 
             # Update tool ID for next action
-            tool_id = past_step.action.id or self.create_tool_use_id()
+            tool_id = last_step.action.id or self.create_tool_use_id()
 
-            inner_content: list[Union[BetaTextBlockParam, BetaToolUseBlockParam]] = []
+            inflated_reasoning = json.loads(last_step.action.reasoning)
 
-            inner_content.append(
-                {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "computer",
-                    "input": self.flatten_browser_step_to_action(past_step),
-                }
-            )
-
-            action_msg: BetaMessageParam = {
-                "role": "assistant",
-                "content": cast(
-                    list[Union[BetaTextBlockParam, BetaToolUseBlockParam]],
-                    inner_content,
-                ),
+            state = {
+                "prior_steps_summary": inflated_reasoning["review_of_prior_steps"],
+                "most_recent_attempted_action": inflated_reasoning["next_action_plan"],
             }
-            messages.append(action_msg)
+
+            msg1 = {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(state),
+                    }
+                ],
+                "tool_calls": [
+                    {
+                        "id": tool_id,
+                        "type": "function",
+                        "function": {
+                            "name": last_step.action.action,
+                            "arguments": self.flatten_browser_step_to_action(last_step),
+                        },
+                    }
+                ],
+            }
+        else:
+            state = {
+                "prior_steps_summary": "No past actions have been taken.",
+                "most_recent_attempted_action": "Grab a screenshot of the browser to understand what is the starting website state.",
+            }
+
+            msg1 = {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(state),
+                    }
+                ],
+                "tool_calls": [
+                    {
+                        "id": tool_id,
+                        "type": "function",
+                        "function": {
+                            "name": "screenshot", 
+                            "arguments": "{}",
+                        }
+                    }
+                ],
+            }
+        
+        messages.append(msg0)
+        messages.append(msg1)
 
         current_state_message = self.format_state_into_msg(
             tool_id,
@@ -513,7 +844,7 @@ Using the supporting contextual data:
         return messages
 
     def parse_action(
-        self, message: BetaMessage, scaling: ScalingRatio, current_state: BrowserState
+        self, message: vLLMResponse, scaling: ScalingRatio, current_state: BrowserState
     ) -> BrowserAction:
         """Parses an LLM message into a browser action.
 
@@ -532,122 +863,59 @@ Using the supporting contextual data:
             None
         """
         # Collect all text content as reasoning
-        reasoning = " ".join(
-            content.text for content in message.content if content.type == "text"
-        )
-
-        last_message = message.content[-1]
-
-        print(last_message)
-        if isinstance(last_message, str):
-            return BrowserAction(
-                action=BrowserActionType.FAILURE,
-                reasoning=last_message,
-                coordinate=None,
-                text=None,
-                id=self.create_tool_use_id(),
-            )
-
-        if last_message.type != "tool_use":
-            return BrowserAction(
-                action=BrowserActionType.FAILURE,
-                reasoning=reasoning,
-                text="Invalid message type",
-                coordinate=None,
-                id=self.create_tool_use_id(),
-            )
+        raw_message = message.model_dump()
+        del raw_message["next_action"]
+        reasoning = json.dumps(raw_message)
+        id = self.create_tool_use_id()
+        last_message = message.next_action
 
         if last_message.name == "stop_browsing":
-            input_data = cast(dict, last_message.input)
-            if not input_data.get("success"):
+            if not last_message.success:
                 return BrowserAction(
                     action=BrowserActionType.FAILURE,
                     reasoning=reasoning,
-                    text=input_data.get("error", "Unknown error"),
+                    text= last_message.error if last_message.error else "Unknown Error",
                     coordinate=None,
-                    id=last_message.id,
+                    id=id,
                 )
             return BrowserAction(
                 action=BrowserActionType.SUCCESS,
                 reasoning=reasoning,
                 text=None,
                 coordinate=None,
-                id=last_message.id,
+                id=id,
             )
 
         if last_message.name == "switch_tab":
-            input_data = cast(dict, last_message.input)
-            if "tab_id" not in input_data:
+            if "tab_id" not in last_message:
                 return BrowserAction(
                     action=BrowserActionType.FAILURE,
                     reasoning=reasoning,
-                    text=input_data.get(
-                        "error", "No tab id for switch_tab function call"
-                    ),
+                    text="No tab id for switch_tab function call",
                     coordinate=None,
-                    id=last_message.id,
+                    id=id,
                 )
             return BrowserAction(
                 action=BrowserActionType.SWITCH_TAB,
                 reasoning=reasoning,
                 text=str(
-                    input_data["tab_id"]
+                    last_message.tab_id
                 ),  # Convert to string since text is Optional[str]
                 coordinate=None,
                 id=last_message.id,
             )
 
-        if last_message.name != "computer":
-            return BrowserAction(
-                action=BrowserActionType.FAILURE,
-                reasoning=reasoning,
-                text="Wrong message called",
-                coordinate=None,
-                id=last_message.id,
-            )
-
-        input_data = cast(dict, last_message.input)
-        action = input_data.get("action", "")
-        coordinate: Optional[list[int]] = input_data.get("coordinate")  # Make Optional
-        text: Optional[str] = input_data.get("text")  # Make Optional
-
-        if isinstance(coordinate, str):
-            print("Coordinate is a string:", coordinate)
-            print(last_message)
-            raw = json.loads(coordinate)
-            if isinstance(raw, tuple):
-                coordinate = raw
-            elif isinstance(raw, dict):
-                if "x" in raw and "y" in raw:
-                    coordinate = (raw["x"], raw["y"])
-
-        if isinstance(coordinate, dict):
-            if "x" in coordinate and "y" in coordinate:
-                print("Coordinate object has x and y properties")
-                coordinate = (coordinate["x"], coordinate["y"])
-            elif isinstance(coordinate, list):
-                coordinate = (coordinate[0], coordinate[1])
-
-        if action == "key" or action == "type":
-            if not text:
-                return BrowserAction(
-                    action=BrowserActionType.FAILURE,
-                    reasoning=reasoning,
-                    text=f"No text provided for {action}",
-                    coordinate=None,
-                    id=last_message.id,
-                )
-
-            if action == "key":
+        if last_message.name == "key" or last_message.name == "type":
+            if last_message.name == "key":
                 # Handle special key mappings from utils.parse_xdotool
-                text_lower = text.lower().strip()
+                text_lower = last_message.text.lower().strip()
                 if text_lower in ("page_down", "pagedown"):
                     return BrowserAction(
                         action=BrowserActionType.SCROLL_DOWN,
                         reasoning=reasoning,
                         coordinate=None,
                         text=None,
-                        id=last_message.id,
+                        id=id,
                     )
                 if text_lower in ("page_up", "pageup"):
                     return BrowserAction(
@@ -655,40 +923,22 @@ Using the supporting contextual data:
                         reasoning=reasoning,
                         coordinate=None,
                         text=None,
-                        id=last_message.id,
+                        id=id,
                     )
 
             return BrowserAction(
                 action=(
-                    BrowserActionType.KEY if action == "key" else BrowserActionType.TYPE
+                    BrowserActionType.KEY if last_message.name == "key" else BrowserActionType.TYPE
                 ),
                 reasoning=reasoning,
-                text=text,
+                text=last_message.text,
                 coordinate=None,
-                id=last_message.id,
+                id=id,
             )
 
-        elif action == "mouse_move":
-            if not coordinate:
-                return BrowserAction(
-                    action=BrowserActionType.FAILURE,
-                    reasoning=reasoning,
-                    text="No coordinate provided",
-                    coordinate=None,
-                    id=last_message.id,
-                )
-            if isinstance(coordinate, str):
-                print(last_message)
-                return BrowserAction(
-                    action=BrowserActionType.FAILURE,
-                    reasoning=reasoning,
-                    text="Coordinate is a string, not array of integers.",
-                    coordinate=None,
-                    id=last_message.id,
-                )
-
+        elif last_message.name == "mouse_move":
             browser_coordinates = self.llm_to_browser_coordinates(
-                Coordinate(x=coordinate[0], y=coordinate[1]), scaling
+                Coordinate(x=last_message.coordinate[0], y=last_message.coordinate[1]), scaling
             )
 
             # Calculate the distance moved
@@ -706,7 +956,7 @@ Using the supporting contextual data:
                     reasoning=reasoning,
                     coordinate=None,
                     text=None,
-                    id=last_message.id,
+                    id=id,
                 )
 
             return BrowserAction(
@@ -714,21 +964,12 @@ Using the supporting contextual data:
                 reasoning=reasoning,
                 coordinate=browser_coordinates,
                 text=None,
-                id=last_message.id,
+                id=id,
             )
 
-        elif action == "left_click_drag":
-            if not coordinate:
-                return BrowserAction(
-                    action=BrowserActionType.FAILURE,
-                    reasoning=reasoning,
-                    text="No coordinate provided",
-                    coordinate=None,
-                    id=last_message.id,
-                )
-
+        elif last_message.name == "left_click_drag":
             browser_coordinates = self.llm_to_browser_coordinates(
-                Coordinate(x=coordinate[0], y=coordinate[1]), scaling
+                Coordinate(x=last_message.coordinate[0], y=last_message.coordinate[1]), scaling
             )
 
             return BrowserAction(
@@ -736,10 +977,10 @@ Using the supporting contextual data:
                 reasoning=reasoning,
                 coordinate=browser_coordinates,
                 text=None,
-                id=last_message.id,
+                id=id,
             )
 
-        elif action in (
+        elif last_message.name in (
             "left_click",
             "right_click",
             "middle_click",
@@ -754,23 +995,23 @@ Using the supporting contextual data:
                 "double_click": BrowserActionType.DOUBLE_CLICK,
                 "screenshot": BrowserActionType.SCREENSHOT,
                 "cursor_position": BrowserActionType.CURSOR_POSITION,
-            }[action]
+            }[last_message.name]
 
             return BrowserAction(
                 action=action_type,
                 reasoning=reasoning,
                 coordinate=None,
                 text=None,
-                id=last_message.id,
+                id=id,
             )
 
         else:
             return BrowserAction(
                 action=BrowserActionType.FAILURE,
                 reasoning=reasoning,
-                text=f"Unsupported computer action: {action}",
+                text=f"Unsupported computer action: {last_message.name}",
                 coordinate=None,
-                id=last_message.id,
+                id=id,
             )
 
     def plan_action(
@@ -781,90 +1022,62 @@ Using the supporting contextual data:
         current_state: BrowserState,
         session_history: list[BrowserStep],
     ) -> BrowserAction:
-        """Plans the next browser action based on the current state and goal.
-
-        Uses the Anthropic Claude API to analyze the current browser state and determine
-        the next action to take to achieve the specified goal.
-
-        Args:
-            goal: The task/goal to accomplish
-            additional_context: Extra context information to help accomplish the goal
-            additional_instructions: List of additional instructions to include
-            current_state: Current state of the browser including coordinates and screenshot
-            session_history: List of previous browser actions and their results
-
-        Returns:
-            A BrowserAction object containing the next action to take
-
-        Raises:
-            None
-        """
         system_prompt = self.format_system_prompt(
             goal, additional_context, additional_instructions
         )
+
+        system_msg = {
+            "role": "system",
+            "content": system_prompt
+        }
+
         messages = self.format_into_messages(
             goal, additional_context, current_state, session_history
         )
+
+        messages.insert(0, system_msg)
 
         scaling = self.get_scaling_ratio(
             Coordinate(x=current_state.width, y=current_state.height)
         )
 
-        response = self.client.beta.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            system=system_prompt,
-            max_tokens=1024,
-            tools=[
-                {
-                    "type": "computer_20241022",
-                    "name": "computer",
-                    "display_width_px": current_state.width,
-                    "display_height_px": current_state.height,
-                    "display_number": 1,
-                },
-                {
-                    "name": "switch_tab",
-                    "description": "Call this function to switch the active browser tab to a new one",
-                    "input_schema": {
-                        "type": "object",
-                        "properties": {
-                            "tab_id": {
-                                "type": "integer",
-                                "description": "The ID of the tab to switch to",
-                            },
-                        },
-                        "required": ["tab_id"],
-                    },
-                },
-                {
-                    "name": "stop_browsing",
-                    "description": "Call this function when you have achieved the goal of the task.",
-                    "input_schema": {
-                        "type": "object",
-                        "properties": {
-                            "success": {
-                                "type": "boolean",
-                                "description": "Whether the task was successful",
-                            },
-                            "error": {
-                                "type": "string",
-                                "description": "The error message if the task was not successful",
-                            },
-                        },
-                        "required": ["success"],
-                    },
-                },
-            ],
-            # tool_choice = {"type": "any"},
-            messages=messages,
-            betas=["computer-use-2024-10-22"],
+        json_schema = vLLMResponse.model_json_schema()
+
+        body = {
+            "model": self.model,
+            "messages": messages,
+            "guided_json": json_schema,
+            "temperature": 0.2
+        }
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        print("\nMessages sent to API:")
+        print(self.print_messages(messages))
+
+        raw = requests.post(
+            url=f"{self.server}/v1/chat/completions",
+            headers=headers,
+            data=json.dumps(body),
         )
 
-        print(
-            f"Token usage - Input: {response.usage.input_tokens}, Output: {response.usage.output_tokens}"
-        )
-        self.input_token_usage += response.usage.input_tokens
-        self.output_token_usage += response.usage.output_tokens
+        if raw.status_code != 200:
+            print(raw.text)
+            raise Exception(f"Failed to get response from API: {raw.status_code}")
+
+        raw_json = raw.json()
+        
+        content = raw_json["choices"][0]["message"]["content"]
+
+        response = vLLMResponse.model_validate_json(content)
+
+        print(json.dumps(response.model_dump(), indent=4))
+
+        self.input_token_usage  += raw_json["usage"]["prompt_tokens"]
+        self.output_token_usage += raw_json["usage"]["completion_tokens"]
+
         print(
             f"Cumulative token usage - Input: {self.input_token_usage}, Output: {self.output_token_usage}, Total: {self.input_token_usage + self.output_token_usage}"
         )
@@ -874,16 +1087,15 @@ Using the supporting contextual data:
 
         return action
 
-    def flatten_browser_step_to_action(self, step: BrowserStep) -> dict[str, Any]:
+    def flatten_browser_step_to_action(self, step: BrowserStep) -> str:
         if step.action.action == BrowserActionType.SCROLL_DOWN:
-            return {"action": "key", "text": "Page_Down"}
+            return {"text": "Page_Down"}
 
         elif step.action.action == BrowserActionType.SCROLL_UP:
-            return {"action": "key", "text": "Page_Up"}
+            return {"text": "Page_Up"}
 
-        val: dict[str, Any] = {
-            "action": step.action.action,
-        }
+        val: dict[str, Any] = {}
+
         if step.action.text:
             val["text"] = step.action.text
 
@@ -895,4 +1107,24 @@ Using the supporting contextual data:
             )
             val["coordinate"] = [llm_coordinates.x, llm_coordinates.y]
 
-        return val
+        return json.dumps(val)
+    
+    def print_messages(self, messages: list[dict[str, any]]):
+        """Pretty prints messages after removing image data.
+        
+        Args:
+            messages: List of message dictionaries to print
+        """
+        for msg in messages:
+            # Create a copy to modify
+            msg_copy = copy.deepcopy(msg)
+            
+            # Remove image URLs from content if present
+            if "content" in msg_copy and isinstance(msg_copy["content"], list):
+                msg_copy["content"] = [
+                    item for item in msg_copy["content"] 
+                    if isinstance(item, dict) and item.get("type") != "image_url"
+                ]
+            
+            print(json.dumps(msg_copy, indent=4))
+            print()
