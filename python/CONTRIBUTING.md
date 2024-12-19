@@ -36,7 +36,7 @@ Contributions are welcome, especially if the contribution helps to advance one o
 
 7. Run the google example
    ```bash
-   python example/google.py
+   python examples/google.py
    ```
 
 For more examples and detailed API documentation, refer to the [root README](../README.md).
