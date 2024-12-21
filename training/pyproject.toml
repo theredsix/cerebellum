@@ -3,7 +3,6 @@ name = "training"
 version = "0.1.0"
 description = ""
 authors = ["Han Wang <han.wang.2718@gmail.com>"]
-readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"

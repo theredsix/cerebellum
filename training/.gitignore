@@ -1,4 +1,6 @@
 .venv
-
-
+molmo/*
+mind2web/*
+hf_dataset/*
+poetry.lock
 *.jsonl

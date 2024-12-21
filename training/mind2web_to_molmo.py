@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 Convert the Jupyter Notebook logic into a standalone Python script.
 
@@ -15,7 +13,6 @@ import io
 import json
 import math
 import os
-from typing import Optional
 
 from PIL import Image
 
@@ -146,13 +143,7 @@ def main() -> None:
         default="molmo",
         help="Directory where processed .jsonl files are written (default: molmo).",
     )
-    # If you need a dataset name or other arguments, add them here as needed:
-    parser.add_argument(
-        "--dataset_name",
-        type=str,
-        default="",
-        help="Optional dataset name (unused by default).",
-    )
+
     args = parser.parse_args()
 
     input_dir = args.input_dir
@@ -164,8 +155,6 @@ def main() -> None:
 
     print(f"Reading from: {input_dir}")
     print(f"Writing to:   {output_dir}")
-    if args.dataset_name:
-        print(f"Dataset name (not actively used in script): {args.dataset_name}")
 
     # Iterate over each file in the input directory
     for filename in os.listdir(input_dir):
