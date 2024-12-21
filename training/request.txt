@@ -1,0 +1,1026 @@
+<System>
+You are an expert AI/ML engineer working to curate a dataset to fine-tune a multimodal LLM. You are an expert in python coding.
+</System>
+
+<Background>
+* There are a set of files that have taken the mind2web dataset form huggingface and converted it into some initial formats. 
+* `preprocess_mind2web.py` downloads and converts the dataset initially into organized files.
+* `mind2web_to_molmo.py` takes that preprocessed data and produces a jsonl file for each example, and can be seen in `molmo_example.jsonl`.
+* Our ultimate goal is to convert into a `sharegpt` format which are outlined in `tooluse_example_dataset.json` and `image_example_dataset`
+* `image_example_dataset.json` is the exact format we will adhere to.
+* `tooluse_example_dataset.json` has an example for showing how to include tools but should only loosely be used for refference.
+* the directory structure should be a file `tooluse_dataset.json` and a folder called `images` containing all of the iamges converted from base64.
+</Background>
+
+<MessageFormating>
+* 
+
+
+
+</MessageFormating>
+
+
+<Tasks>
+Create a python script that can take the outputs of `mind2web_to_molmo.py` (a directory), process each jsonl file, and each line is an example for the resultant dataset.
+
+* Convert base64 images to png and save in folder.
+* Setup argparse for apprprpriate inputs
+* Save the entire dataset in a single file. 
+* For the tool description in each conversation, use `tool_use_desc.json`. 
+* For each line the conversation history should only contain the system prompt, then the origianl task, then the lastest screenshot, then the following tool use. 
+* Provide option to limit max number of lines from each file and max number of files
+
+{
+  "conversations": [
+    {"from": "system", "value": "...system prompt..."},
+    {"from": "human",  "value": "...original user task..."},
+    {"from": "observation", "value": "<image> ...some optional text describing screenshot..."},
+    {"from": "function_call", "value": "{\"name\": \"computer_use\", \"arguments\": ...}"}
+  ],
+  "tools": [ ... list of tool function descriptors from tool_use_desc.json ... ]
+}
+
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Hi, I have some ingredients and I want to cook something. Can you help me find a recipe?"
+      },
+      {
+        "from": "gpt",
+        "value": "Of course! I can help you with that. Please tell me what ingredients you have."
+      },
+      {
+        "from": "human",
+        "value": "I have chicken, bell peppers, and rice."
+      },
+      {
+        "from": "function_call",
+        "value": "{\"name\": \"search_recipes\", \"arguments\": {\"ingredients\": [\"chicken\", \"bell peppers\", \"rice\"]}}"
+      },
+      {
+        "from": "observation",
+        "value": "{\"recipes\": [{\"name\": \"Chicken and Bell Pepper Stir Fry\", \"ingredients\": [\"chicken\", \"bell peppers\", \"rice\"], \"instructions\": \"Cut the chicken into small pieces. Slice the bell peppers. Cook the rice. Stir fry the chicken and bell peppers. Serve over rice.\"}, {\"name\": \"Chicken and Rice Casserole\", \"ingredients\": [\"chicken\", \"bell peppers\", \"rice\"], \"instructions\": \"Cook the chicken and rice separately. Mix them together with the bell peppers in a casserole dish. Bake until golden brown.\"}]}"
+      },
+      {
+        "from": "gpt",
+        "value": "I found two recipes for you. The first one is \"Chicken and Bell Pepper Stir Fry\". The instructions are: Cut the chicken into small pieces. Slice the bell peppers. Cook the rice. Stir fry the chicken and bell peppers. Serve over rice. The second one is \"Chicken and Rice Casserole\". The instructions are: Cook the chicken and rice separately. Mix them together with the bell peppers in a casserole dish. Bake until golden brown. Which one would you like to try?"
+      },
+      {
+        "from": "human",
+        "value": "They both sound delicious, but I think I'll try the stir fry. Can you order the ingredients for me?"
+      },
+      {
+        "from": "gpt",
+        "value": "I'm sorry, but as an AI, I don't have the capability to perform external tasks such as ordering ingredients. However, I can help you find more recipes or provide cooking tips if you need."
+      }
+    ],
+    "tools": "[{\"name\": \"search_recipes\", \"description\": \"Search for recipes based on ingredients\", \"parameters\": {\"type\": \"object\", \"properties\": {\"ingredients\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, \"description\": \"The ingredients to search for\"}}, \"required\": [\"ingredients\"]}}]"
+  },
+
+
+
+</Tasks>
+
+
+
+<tool_use_desc.json>
+[
+    {
+        "type": "function",
+        "function": {
+            "name": "computer_use",
+            "description": "Control computer input devices (keyboard and mouse) and capture screen information",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "The action to perform with the computer input devices or screen capture",
+                        "enum": [
+                            "key",
+                            "type",
+                            "mouse_move",
+                            "left_click",
+                            "left_click_drag",
+                            "right_click",
+                            "middle_click",
+                            "double_click",
+                            "screenshot",
+                            "cursor_position"
+                        ],
+                        "enumDescriptions": {
+                            "key": "Press a key or key-combination on the keyboard. This supports xdotool's `key` syntax. Examples: \"a\", \"Return\", \"alt+Tab\", \"ctrl+s\", \"Up\", \"KP_0\" (for the numpad 0 key)",
+                            "type": "Type a string of text on the keyboard",
+                            "cursor_position": "Get the current (x, y) pixel coordinate of the cursor on the screen",
+                            "mouse_move": "Move the cursor to a specified (x, y) pixel coordinate on the screen",
+                            "left_click": "Click the left mouse button",
+                            "left_click_drag": "Click and drag the cursor to a specified (x, y) pixel coordinate on the screen",
+                            "right_click": "Click the right mouse button",
+                            "middle_click": "Click the middle mouse button",
+                            "double_click": "Double-click the left mouse button",
+                            "screenshot": "Take a screenshot of the screen"
+                        }
+                    },
+                    "coordinate": {
+                        "type": "array",
+                        "description": "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates to move the mouse to. Required only by `action=mouse_move` and `action=left_click_drag`.",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "minItems": 2,
+                        "maxItems": 2
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Required only by `action=type` and `action=key`."
+                    }
+                },
+                "required": [
+                    "action"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "switch_tab",
+            "description": "Call this function to switch the active browser tab to a new one",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tab_id": {
+                        "type": "integer",
+                        "description": "The ID of the tab to switch to"
+                    }
+                },
+                "required": [
+                    "tab_id"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "stop_browsing",
+            "description": "Call this function when you have achieved the goal of the task.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "description": "Whether the task was successful"
+                    },
+                    "error": {
+                        "type": "string",
+                        "description": "The error message if the task was not successful"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
+            }
+        }
+    }
+]
+</tool_use_desc.json>
+
+<tooluse_example_dataset.json>
+[
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Hi, I have some ingredients and I want to cook something. Can you help me find a recipe?"
+      },
+      {
+        "from": "gpt",
+        "value": "Of course! I can help you with that. Please tell me what ingredients you have."
+      },
+      {
+        "from": "human",
+        "value": "I have chicken, bell peppers, and rice."
+      },
+      {
+        "from": "function_call",
+        "value": "{\"name\": \"search_recipes\", \"arguments\": {\"ingredients\": [\"chicken\", \"bell peppers\", \"rice\"]}}"
+      },
+      {
+        "from": "observation",
+        "value": "{\"recipes\": [{\"name\": \"Chicken and Bell Pepper Stir Fry\", \"ingredients\": [\"chicken\", \"bell peppers\", \"rice\"], \"instructions\": \"Cut the chicken into small pieces. Slice the bell peppers. Cook the rice. Stir fry the chicken and bell peppers. Serve over rice.\"}, {\"name\": \"Chicken and Rice Casserole\", \"ingredients\": [\"chicken\", \"bell peppers\", \"rice\"], \"instructions\": \"Cook the chicken and rice separately. Mix them together with the bell peppers in a casserole dish. Bake until golden brown.\"}]}"
+      },
+      {
+        "from": "gpt",
+        "value": "I found two recipes for you. The first one is \"Chicken and Bell Pepper Stir Fry\". The instructions are: Cut the chicken into small pieces. Slice the bell peppers. Cook the rice. Stir fry the chicken and bell peppers. Serve over rice. The second one is \"Chicken and Rice Casserole\". The instructions are: Cook the chicken and rice separately. Mix them together with the bell peppers in a casserole dish. Bake until golden brown. Which one would you like to try?"
+      },
+      {
+        "from": "human",
+        "value": "They both sound delicious, but I think I'll try the stir fry. Can you order the ingredients for me?"
+      },
+      {
+        "from": "gpt",
+        "value": "I'm sorry, but as an AI, I don't have the capability to perform external tasks such as ordering ingredients. However, I can help you find more recipes or provide cooking tips if you need."
+      }
+    ],
+    "tools": "[{\"name\": \"search_recipes\", \"description\": \"Search for recipes based on ingredients\", \"parameters\": {\"type\": \"object\", \"properties\": {\"ingredients\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, \"description\": \"The ingredients to search for\"}}, \"required\": [\"ingredients\"]}}]"
+  }
+]
+</tooluse_example_dataset.json>
+
+<image_example_dataset.json>
+[
+  {
+    "messages": [
+      {
+        "content": "<image>Who are they?",
+        "role": "user"
+      },
+      {
+        "content": "They're Kane and Gretzka from Bayern Munich.",
+        "role": "assistant"
+      },
+      {
+        "content": "What are they doing?",
+        "role": "user"
+      },
+      {
+        "content": "They are celebrating on the soccer field.",
+        "role": "assistant"
+      }
+    ],
+    "images": [
+      "mllm_demo_data/1.jpg"
+    ]
+  },
+  {
+    "messages": [
+      {
+        "content": "<image>Who is he?",
+        "role": "user"
+      },
+      {
+        "content": "He's Thomas Muller from Bayern Munich.",
+        "role": "assistant"
+      },
+      {
+        "content": "Why is he on the ground?",
+        "role": "user"
+      },
+      {
+        "content": "Because he's sliding on his knees to celebrate.",
+        "role": "assistant"
+      }
+    ],
+    "images": [
+      "mllm_demo_data/2.jpg"
+    ]
+  }
+]
+</image_example_dataset.json>
+
+<molmo_example.jsonl>
+[{"role": "system", "content": "Use a mouse and keyboard to interact with a computer, and take screenshots.\n* This is an interface to a desktop GUI. You do not have access to a terminal or applications menu. You must click on desktop icons to start applications.\n* Some applications may take time to start or process actions, so you may need to wait and take successive screenshots to see the results of your actions. E.g. if you click on Firefox and a window doesn't open, try taking another screenshot.\n* Whenever you intend to move the cursor to click on an element like an icon, you should consult a screenshot to determine the coordinates of the element before moving the cursor.\n* If you tried clicking on a program or link but it failed to load, even after waiting, try adjusting your cursor position so that the tip of the cursor visually falls on the element that you want to click.\n* Make sure to click any buttons, links, icons, etc with the cursor tip in the center of the element. Don't click boxes on their edges unless asked.\n\n<SYSTEM_CAPABILITY>\n* You are a computer use tool that is controlling a browser in fullscreen mode to complete a goal for the user. The goal is listed below in <USER_TASK>.\n* The browser operates in fullscreen mode, meaning you cannot use standard browser UI elements like STOP, REFRESH, BACK, or the address bar. You must accomplish your task solely by interacting with the website's user interface or calling \"switch_tab\" or \"stop_browsing\"\n* After each action, you will be provided with mouse position, open tabs, and a screenshot of the active browser tab.\n* Use the Page_down or Page_up keys to scroll through the webpage. If the website is scrollable, a gray rectangle-shaped scrollbar will appear on the right edge of the screenshot. Ensure you have scrolled through the entire page before concluding that content is unavailable.\n* The mouse cursor will appear as a black arrow in the screenshot. Use its position to confirm whether your mouse movement actions have been executed successfully. Ensure the cursor is correctly positioned over the intended UI element before executing a click command.\n* After each action, you will receive information about open browser tabs. This information will be in the form of a list of JSON objects, each representing a browser tab with the following fields:\n  - \"tab_id\": An integer that identifies the tab within the browser. Use this ID to switch between tabs.\n  - \"title\": A string representing the title of the webpage loaded in the tab.\n  - \"active_tab\": A boolean indicating whether this tab is currently active. You will receive a screenshot of the active tab.\n  - \"new_tab\": A boolean indicating whether the tab was opened as a result of the last action.\n* Follow all directions from the <IMPORTANT> section below. \n* The current date is {datetime.now().isoformat()}.\n</SYSTEM_CAPABILITY>\n\nThe user will ask you to perform a task and you should use their browser to do so. After each step, analyze the screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: \"I have evaluated step X...\" If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.\n\n<IMPORTANT>\n* After moving the mouse to the desired location, always perform a left-click to ensure the action is completed.\n* You will use information provided in user's <USER DATA> to fill out forms on the way to your goal.\n* Ensure that any UI element is completely visible on the screen before attempting to interact with it.\n</IMPORTANT>\n"}, {"role": "user", "content": "<USER_TASK>Search for a non-fiction children's book for ages 9-11 on the topic of history in the Hindi language, and add the top book to the cart, if not available choose notify me option and also add the book to new wishlist must buy.</USER_TASK>\n<USER_DATA>NONE</USER_DATA>"}, {"role": "assistant", "content": [{"type": "text", "text": "Take a screenshot of the browser to understand the current webpage"}, {"type": "tool_use", "id": "toolu_01D7ZVKN1GCs6BZCQpBzhEB6", "name": "computer", "input": {"action": "screenshot"}}]}, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01D7ZVKN1GCs6BZCQpBzhEB6", "is_error": false, "content": [{"type": "text", "value": "Mouse is at X: 0.00078125, Y: 0.00125"}, {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "<base64 Image>"}}]}]}, {"role": "assistant", "content": [{"type": "text", "text": "Move mouse to the center of the element"}, {"type": "tool_use", "name": "computer", "id": "toolu_01aKQPSNKXwL74tcc7Bgl69A", "input": {"action": "mouse_move", "coordinate": [0.075, 0.22689453125]}}]}]
+[{"role": "system", "content": "Use a mouse and keyboard to interact with a computer, and take screenshots.\n* This is an interface to a desktop GUI. You do not have access to a terminal or applications menu. You must click on desktop icons to start applications.\n* Some applications may take time to start or process actions, so you may need to wait and take successive screenshots to see the results of your actions. E.g. if you click on Firefox and a window doesn't open, try taking another screenshot.\n* Whenever you intend to move the cursor to click on an element like an icon, you should consult a screenshot to determine the coordinates of the element before moving the cursor.\n* If you tried clicking on a program or link but it failed to load, even after waiting, try adjusting your cursor position so that the tip of the cursor visually falls on the element that you want to click.\n* Make sure to click any buttons, links, icons, etc with the cursor tip in the center of the element. Don't click boxes on their edges unless asked.\n\n<SYSTEM_CAPABILITY>\n* You are a computer use tool that is controlling a browser in fullscreen mode to complete a goal for the user. The goal is listed below in <USER_TASK>.\n* The browser operates in fullscreen mode, meaning you cannot use standard browser UI elements like STOP, REFRESH, BACK, or the address bar. You must accomplish your task solely by interacting with the website's user interface or calling \"switch_tab\" or \"stop_browsing\"\n* After each action, you will be provided with mouse position, open tabs, and a screenshot of the active browser tab.\n* Use the Page_down or Page_up keys to scroll through the webpage. If the website is scrollable, a gray rectangle-shaped scrollbar will appear on the right edge of the screenshot. Ensure you have scrolled through the entire page before concluding that content is unavailable.\n* The mouse cursor will appear as a black arrow in the screenshot. Use its position to confirm whether your mouse movement actions have been executed successfully. Ensure the cursor is correctly positioned over the intended UI element before executing a click command.\n* After each action, you will receive information about open browser tabs. This information will be in the form of a list of JSON objects, each representing a browser tab with the following fields:\n  - \"tab_id\": An integer that identifies the tab within the browser. Use this ID to switch between tabs.\n  - \"title\": A string representing the title of the webpage loaded in the tab.\n  - \"active_tab\": A boolean indicating whether this tab is currently active. You will receive a screenshot of the active tab.\n  - \"new_tab\": A boolean indicating whether the tab was opened as a result of the last action.\n* Follow all directions from the <IMPORTANT> section below. \n* The current date is {datetime.now().isoformat()}.\n</SYSTEM_CAPABILITY>\n\nThe user will ask you to perform a task and you should use their browser to do so. After each step, analyze the screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking for EACH function call: \"I have evaluated step X...\" If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. You should always call a tool! Always return a tool call. Remember call the stop_browsing tool when you have achieved the goal of the task. Use keyboard shortcuts to navigate whenever possible.\n\n<IMPORTANT>\n* After moving the mouse to the desired location, always perform a left-click to ensure the action is completed.\n* You will use information provided in user's <USER DATA> to fill out forms on the way to your goal.\n* Ensure that any UI element is completely visible on the screen before attempting to interact with it.\n</IMPORTANT>\n"}, {"role": "user", "content": "<USER_TASK>Search for a non-fiction children's book for ages 9-11 on the topic of history in the Hindi language, and add the top book to the cart, if not available choose notify me option and also add the book to new wishlist must buy.</USER_TASK>\n<USER_DATA>NONE</USER_DATA>"}, {"role": "assistant", "content": [{"type": "text", "text": "Take a screenshot of the browser to understand the current webpage"}, {"type": "tool_use", "id": "toolu_01D7ZVKN1GCs6BZCQpBzhEB6", "name": "computer", "input": {"action": "screenshot"}}]}, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01D7ZVKN1GCs6BZCQpBzhEB6", "is_error": false, "content": [{"type": "text", "value": "Mouse is at X: 0.00078125, Y: 0.00125"}]}]}, {"role": "assistant", "content": [{"type": "text", "text": "Move mouse to the center of the element"}, {"type": "tool_use", "name": "computer", "id": "toolu_01z0aTxaF5cSFHtsIwCOzKum", "input": {"action": "mouse_move", "coordinate": [0.075, 0.22689453125]}}]}, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01z0aTxaF5cSFHtsIwCOzKum", "is_error": false, "content": [{"type": "text", "value": "Mouse is at X: 0.075, Y: 0.22625"}, {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "<base64 Image>"}}]}]}, {"role": "assistant", "content": [{"type": "text", "text": "Perform a left click on element"}, {"type": "tool_use", "name": "computer", "id": "toolu_01UySQtrto2Xc9BWnFXLBAIy", "input": {"action": "left_click"}}]}]
+<molmo_example.jsonl>
+
+<preprocess_mind2web.py>
+"""
+Example usage:
+--------------
+python mind2web_script.py --dataset_name osunlp/Multimodal-Mind2Web --subset train --output_dir mind2web
+--------------
+
+This script converts the Jupyter Notebook logic into a single Python script. 
+It processes a dataset of browser steps (via the `datasets` library) and 
+generates JSONL output for each task, representing the "cerebellum steps."
+"""
+
+import argparse
+import base64
+import dataclasses
+import json
+import random
+from dataclasses import dataclass
+from io import BytesIO
+from typing import List, Literal, Tuple
+
+from datasets import load_dataset
+from PIL import Image
+
+
+@dataclass
+class Coordinate:
+    """Represents a 2D coordinate."""
+
+    x: int
+    y: int
+
+
+@dataclass
+class ScrollBar:
+    """Represents scrollbar metadata."""
+
+    offset: float
+    height: float
+
+
+@dataclass
+class BrowserState:
+    """
+    Holds the current state of a browser, including:
+    - base64 encoded screenshot of the visible viewport
+    - browser dimensions
+    - scrollbar info
+    - current URL
+    - mouse coordinate
+    """
+
+    screenshot: str
+    height: int
+    width: int
+    scrollbar: ScrollBar
+    url: str
+    mouse: Coordinate
+
+
+@dataclass
+class BrowserAction:
+    """
+    Represents a single action within the browser, e.g. mouse move, click, typing,
+    scroll, etc.
+    """
+
+    action: Literal[
+        "success",
+        "failure",
+        "key",
+        "type",
+        "mouse_move",
+        "left_click",
+        "left_click_drag",
+        "right_click",
+        "middle_click",
+        "double_click",
+        "screenshot",
+        "cursor_position",
+        "scroll_up",
+        "scroll_down",
+    ]
+    coordinate: Tuple[int, int] | None
+    text: str | None
+    reasoning: str
+    id: str
+
+
+@dataclass
+class BrowserStep:
+    """
+    Ties together the browser state with the action taken during that state.
+    """
+
+    state: BrowserState
+    action: BrowserAction
+
+
+def generate_tool_id() -> str:
+    """
+    Generates a pseudo-random string ID for a browser action.
+    """
+    prefix = "toolu_01"
+    characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    id_length = 22
+    result = prefix
+    for _ in range(id_length):
+        result += random.choice(characters)
+    return result
+
+
+def is_in_viewport(
+    viewport: Tuple[float, float, float, float], point: Tuple[float, float]
+) -> bool:
+    """
+    Checks if the given point is within the specified viewport.
+
+    Args:
+        viewport: (x1, y1, x2, y2)
+        point: (x, y)
+
+    Returns:
+        bool: True if the point is within the viewport, else False.
+    """
+    x1, y1, x2, y2 = viewport
+    x, y = point
+    return x1 <= x <= x2 and y1 <= y <= y2
+
+
+def scroll_viewport(
+    direction: str, viewport: Tuple[float, float, float, float], y_max: float
+) -> Tuple[float, float, float, float]:
+    """
+    Scrolls the viewport either up or down.
+
+    Args:
+        direction: Either 'up' or 'down'.
+        viewport: The current (x1, y1, x2, y2) representing the viewport.
+        y_max: The maximum Y dimension of the screenshot.
+
+    Returns:
+        A new (x1, y1, x2, y2) for the updated viewport.
+    """
+    x1, y1, x2, y2 = viewport
+    height = y2 - y1
+    scroll_amount = 0.75 * height
+
+    if direction == "up":
+        new_y1 = max(1, y1 - scroll_amount)
+        new_y2 = new_y1 + height
+    elif direction == "down":
+        new_y2 = min(y_max, y2 + scroll_amount)
+        new_y1 = new_y2 - height
+    else:
+        raise ValueError("Direction must be 'up' or 'down'")
+
+    # Adjust if the new viewport exceeds bounds while preserving height
+    if new_y1 < 1:
+        new_y1 = 1
+        new_y2 = new_y1 + height
+    if new_y2 > y_max:
+        new_y2 = y_max
+        new_y1 = new_y2 - height
+
+    return (x1, new_y1, x2, new_y2)
+
+
+def viewport_screenshot(
+    screenshot: Image.Image, viewport: Tuple[float, float, float, float]
+) -> str:
+    """
+    Crops the given screenshot to the specified viewport and returns a base64 encoding
+    of the cropped image.
+
+    Args:
+        screenshot: The original PIL Image.
+        viewport: The (x1, y1, x2, y2) region to crop.
+
+    Returns:
+        Base64-encoded string of the cropped JPEG image.
+    """
+    x1, y1, x2, y2 = map(int, viewport)
+    cropped_image = screenshot.copy().crop((x1, y1, x2, y2))
+
+    buffered = BytesIO()
+    cropped_image.save(buffered, format="JPEG", quality=85)
+    encoded_string = base64.b64encode(buffered.getvalue()).decode("utf-8")
+    return encoded_string
+
+
+def process_step(
+    step, mouse_coordinates: Coordinate
+) -> Tuple[List[BrowserStep], Coordinate]:
+    """
+    Processes a single data record (step) to create a list of `BrowserStep` objects.
+    It generates intermediate steps for scrolling, mouse movement, and clicking.
+
+    Args:
+        step: A dict-like object containing screenshot, pos_candidates, and operation info.
+        mouse_coordinates: Current mouse coordinates.
+
+    Returns:
+        A tuple of (list of BrowserSteps, updated mouse coordinates).
+    """
+    cerebellum_steps: List[BrowserStep] = []
+
+    # Initialize the viewport to the top 16:10 ratio part of the screenshot
+    screenshot = step["screenshot"]
+    width, height = screenshot.size
+    viewport_height = width * 10 / 16
+    viewport = (0, 0, width, viewport_height)
+
+    # Find the bounding box of the first pos_candidates
+    if len(step["pos_candidates"]) == 0:
+        return ([], mouse_coordinates)
+
+    candidate = json.loads(step["pos_candidates"][0])
+    attributes = json.loads(candidate["attributes"])
+    bounding_box_rect = attributes["bounding_box_rect"]
+    x, y, box_width, box_height = map(float, bounding_box_rect.split(","))
+    center_x = x + box_width / 2
+    center_y = y + box_height / 2
+
+    if not (0 <= center_x <= width and 0 <= center_y <= height):
+        print("Bounding box coordinates outside of provided screenshot, skipping step")
+        return ([], mouse_coordinates)
+
+    y_max = float(height)
+    # Scroll the viewport until the center of the bounding box is in view
+    while not is_in_viewport(viewport, (center_x, center_y)):
+        if center_y < viewport[1]:
+            browser_state = BrowserState(
+                url="",
+                screenshot=viewport_screenshot(screenshot, viewport),
+                height=viewport_height,
+                width=width,
+                scrollbar=ScrollBar(
+                    offset=float(viewport[1]) / y_max,
+                    height=float(viewport_height) / y_max,
+                ),
+                mouse=mouse_coordinates,
+            )
+            page_up_action = BrowserAction(
+                action="key",
+                coordinate=None,
+                text="PAGE_UP",
+                reasoning="Press the Page Up key to scroll up",
+                id=generate_tool_id(),
+            )
+            cerebellum_steps.append(
+                BrowserStep(state=browser_state, action=page_up_action)
+            )
+            viewport = scroll_viewport("up", viewport, y_max)
+
+        elif center_y > viewport[3]:
+            browser_state = BrowserState(
+                url="",
+                screenshot=viewport_screenshot(screenshot, viewport),
+                height=viewport_height,
+                width=width,
+                scrollbar=ScrollBar(
+                    offset=float(viewport[1]) / y_max,
+                    height=float(viewport_height) / y_max,
+                ),
+                mouse=mouse_coordinates,
+            )
+            page_down_action = BrowserAction(
+                action="key",
+                coordinate=None,
+                text="PAGE_DOWN",
+                reasoning="Press the Page Down key to scroll down",
+                id=generate_tool_id(),
+            )
+            cerebellum_steps.append(
+                BrowserStep(state=browser_state, action=page_down_action)
+            )
+            viewport = scroll_viewport("down", viewport, y_max)
+
+    # Create a mouse movement action to position the mouse in the center of the bounding box
+    center_x_relative = center_x - viewport[0]
+    center_y_relative = center_y - viewport[1]
+    mouse_move_action = BrowserAction(
+        action="mouse_move",
+        coordinate=(center_x_relative, center_y_relative),
+        text=None,
+        reasoning="Move mouse to the center of the element",
+        id=generate_tool_id(),
+    )
+    browser_state = BrowserState(
+        url="",
+        screenshot=viewport_screenshot(screenshot, viewport),
+        height=viewport_height,
+        width=width,
+        scrollbar=ScrollBar(
+            offset=float(viewport[1]) / y_max,
+            height=float(viewport_height) / y_max,
+        ),
+        mouse=mouse_coordinates,
+    )
+    move_step = BrowserStep(state=browser_state, action=mouse_move_action)
+    cerebellum_steps.append(move_step)
+
+    # Update the mouse coordinates after the move
+    mouse_coordinates = Coordinate(x=center_x_relative, y=center_y_relative)
+
+    # Perform a left click action
+    left_click_action = BrowserAction(
+        action="left_click",
+        coordinate=None,
+        text=None,
+        reasoning="Perform a left click on element",
+        id=generate_tool_id(),
+    )
+    browser_state = BrowserState(
+        url="",
+        screenshot=viewport_screenshot(screenshot, viewport),
+        height=viewport_height,
+        width=width,
+        scrollbar=ScrollBar(
+            offset=float(viewport[1]) / y_max,
+            height=float(viewport_height) / y_max,
+        ),
+        mouse=mouse_coordinates,
+    )
+    left_click_step = BrowserStep(state=browser_state, action=left_click_action)
+    cerebellum_steps.append(left_click_step)
+
+    # Create corresponding key actions if the step operation is "TYPE" or "SELECT"
+    operation = json.loads(step["operation"])
+    if operation["op"] in ["TYPE", "SELECT"]:
+        text = operation["value"]
+        type_action = BrowserAction(
+            action="type",
+            coordinate=None,
+            text=text,
+            reasoning="Typing text set to desired value",
+            id=generate_tool_id(),
+        )
+        browser_state = BrowserState(
+            url="",
+            screenshot=viewport_screenshot(screenshot, viewport),
+            height=viewport_height,
+            width=width,
+            scrollbar=ScrollBar(
+                offset=float(viewport[1]) / y_max,
+                height=float(viewport_height) / y_max,
+            ),
+            mouse=mouse_coordinates,
+        )
+        type_step = BrowserStep(state=browser_state, action=type_action)
+        cerebellum_steps.append(type_step)
+
+    return (cerebellum_steps, mouse_coordinates)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Process Mind2Web data to JSONL steps."
+    )
+    parser.add_argument(
+        "--dataset_name",
+        type=str,
+        default="osunlp/Multimodal-Mind2Web",
+        help="Name/path of the dataset to load (default: osunlp/Multimodal-Mind2Web).",
+    )
+    parser.add_argument(
+        "--subset",
+        type=str,
+        default="train",
+        help="Subset of the dataset to process (default: train).",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="mind2web",
+        help="Directory where JSONL files will be written (default: mind2web).",
+    )
+    args = parser.parse_args()
+
+    # Load the dataset and select the subset
+    ds = load_dataset(args.dataset_name)
+    data_subset = ds.get(args.subset)
+
+    # Create an iterator
+    data_iterator = iter(data_subset)
+
+    # Attempt to read the first record (if any)
+    try:
+        data_point = next(data_iterator)
+    except StopIteration:
+        print(
+            f"No data found in subset '{args.subset}' for dataset '{args.dataset_name}'."
+        )
+        return
+
+    # Optional: check keys for reference
+    print("Data keys:", list(data_point.keys()))
+
+    while True:
+        # Each data_point belongs to a 'task'
+        goal = data_point["confirmed_task"]
+        task_id = data_point["annotation_id"]
+
+        print("Grabbing steps for:", goal, task_id)
+        steps = [data_point]
+
+        # Keep pulling from the iterator until we get all steps for this goal
+        while True:
+            try:
+                data_point = next(data_iterator)
+            except StopIteration:
+                data_iterator = None
+                break
+
+            if data_point["confirmed_task"] != goal:
+                # This belongs to a new task; we'll handle it in the next iteration
+                break
+            steps.append(data_point)
+
+        # Decompose each step into multiple browser steps
+        cerebellum_steps: List[BrowserStep] = []
+        mouse = Coordinate(x=1, y=1)
+        for raw_step in steps:
+            decomposed_steps, mouse = process_step(raw_step, mouse)
+            cerebellum_steps += decomposed_steps
+
+        # Define the output file path
+        output_file_path = f"{args.output_dir}/{task_id}.jsonl"
+
+        # Write the results
+        with open(output_file_path, "w") as outfile:
+            # Write the goal JSON
+            goal_json = json.dumps({"goal": goal})
+            outfile.write(goal_json + "\n")
+
+            # Write each cerebellum step
+            for this_step in cerebellum_steps:
+                step_str = json.dumps(dataclasses.asdict(this_step))
+                outfile.write(step_str + "\n")
+
+        if not data_iterator:
+            # If we've exhausted the dataset, break
+            break
+
+
+if __name__ == "__main__":
+    main()
+</preprocess_mind2web.py>
+
+<mind2web_to_molmo.py>
+"""
+Convert the Jupyter Notebook logic into a standalone Python script.
+
+Example usage:
+--------------
+python build_instructions.py --input_dir mind2web --output_dir molmo
+--------------
+"""
+
+import argparse
+import base64
+import io
+import json
+import math
+import os
+
+from PIL import Image
+
+# Import classes and functions from the reference file
+from preprocess_mind2web import Coordinate, generate_tool_id, ScrollBar
+
+CURSOR_64 = "<b64image>"
+CURSOR_BYTES = base64.b64decode(CURSOR_64)
+cursor_img = Image.open(io.BytesIO(CURSOR_BYTES))
+
+system_prompt = """<system prompt>"""
+
+
+def mark_screenshot(
+    img_buffer: bytes,
+    mouse_position: Coordinate,
+    scrollbar: ScrollBar,
+) -> str:
+    """
+    Adds scrollbar and cursor overlays to a screenshot, then returns a base64-encoded JPEG.
+
+    Args:
+        img_buffer (bytes): Raw bytes of the screenshot image.
+        mouse_position (Coordinate): x,y position of the mouse cursor.
+        scrollbar (ScrollBar): ScrollBar object with scrollbar dimensions and position.
+
+    Returns:
+        str: Base64-encoded string of the modified screenshot.
+    """
+    with Image.open(io.BytesIO(img_buffer)) as img:
+        width, height = img.size
+
+        # Create scrollbar overlay
+        scrollbar_width = 10
+        scrollbar_height = int(height * scrollbar.height)
+        scrollbar_top = int(height * scrollbar.offset)
+
+        # Create gray rectangle for the scrollbar with ~80% opacity
+        scrollbar_img = Image.new(
+            "RGBA",
+            (scrollbar_width, scrollbar_height),
+            (128, 128, 128, int(255 * 0.8)),
+        )
+
+        # Create a copy to paste overlays
+        composite = img.copy()
+        composite.paste(
+            scrollbar_img,
+            (width - scrollbar_width, scrollbar_top),
+            scrollbar_img,
+        )
+
+        # Add cursor
+        composite.paste(
+            cursor_img,
+            (max(0, mouse_position.x), max(0, mouse_position.y)),
+            cursor_img,
+        )
+
+        # Resize logic to keep it from exceeding 640x400
+        aspect_ratio = composite.width / composite.height
+
+        if composite.width > 640 or composite.height > 400:
+            if aspect_ratio > (640 / 400):
+                new_width = 640
+                new_height = int(640 / aspect_ratio)
+            else:
+                new_height = 400
+                new_width = int(400 * aspect_ratio)
+        else:
+            new_width, new_height = composite.width, composite.height
+
+        composite = composite.resize((new_width, new_height), Image.LANCZOS)
+
+        # Convert to base64
+        output_buffer = io.BytesIO()
+        composite.save(output_buffer, "JPEG", quality=85)
+        return base64.b64encode(output_buffer.getvalue()).decode("utf-8")
+
+
+def main() -> None:
+    """
+    Main function that reads .jsonl files from --input_dir and writes processed output to --output_dir.
+    Each .jsonl file is processed to produce instructions for the browser-based steps.
+    """
+    parser = argparse.ArgumentParser(
+        description="Convert JSONL logs into training data with screenshot overlays."
+    )
+    parser.add_argument(
+        "--input_dir",
+        type=str,
+        default="mind2web",
+        help="Directory containing input .jsonl files (default: mind2web).",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="molmo",
+        help="Directory where processed .jsonl files are written (default: molmo).",
+    )
+
+    args = parser.parse_args()
+
+    input_dir = args.input_dir
+    output_dir = args.output_dir
+
+    # Make output directory if it doesn't exist
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    print(f"Reading from: {input_dir}")
+    print(f"Writing to:   {output_dir}")
+
+    # Iterate over each file in the input directory
+    for filename in os.listdir(input_dir):
+        if filename.endswith(".jsonl"):
+            file_path = os.path.join(input_dir, filename)
+            print("Processing", filename)
+
+            with open(file_path, "r", encoding="utf-8") as file:
+                lines_data = []
+                for line in file:
+                    json_object = json.loads(line)
+                    lines_data.append(json_object)
+
+                # The first line's "goal"
+                goal = lines_data.pop(0)["goal"]
+
+                # Build a base message array
+                starting_directions = [
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": f"<USER_TASK>{goal}</USER_TASK>\n<USER_DATA>NONE</USER_DATA>",
+                    },
+                ]
+
+                # The first "tool_use" to gather a screenshot
+                screenshot_tool_use_id = generate_tool_id()
+                starting_directions.append(
+                    {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Take a screenshot of the browser to understand the current webpage",
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": screenshot_tool_use_id,
+                                "name": "computer",
+                                "input": {"action": "screenshot"},
+                            },
+                        ],
+                    }
+                )
+
+                examples = []
+
+                # Build incremental sequences
+                for i in range(len(lines_data)):
+                    last_function_use_id = screenshot_tool_use_id
+                    subset = lines_data[: i + 1]
+
+                    # Make a copy of the base instructions
+                    training_example = starting_directions.copy()
+
+                    for step_idx, step in enumerate(subset):
+                        # Wrap the tool result content
+                        tool_result_content = {
+                            "type": "tool_result",
+                            "tool_use_id": last_function_use_id,
+                            "is_error": False,
+                            "content": [],
+                        }
+
+                        mouse = Coordinate(
+                            x=math.floor(step["state"]["mouse"]["x"]),
+                            y=math.floor(step["state"]["mouse"]["y"]),
+                        )
+
+                        # Normalize
+                        normalized_mouse_x = mouse.x / float(step["state"]["width"])
+                        normalized_mouse_y = mouse.y / float(step["state"]["height"])
+
+                        tool_result_content["content"].append(
+                            {
+                                "type": "text",
+                                "value": f"Mouse is at X: {normalized_mouse_x}, Y: {normalized_mouse_y}",
+                            }
+                        )
+
+                        # Only attach the screenshot for the last step
+                        if step_idx == len(subset) - 1:
+                            decoded_img = base64.b64decode(step["state"]["screenshot"])
+                            marked_image = mark_screenshot(
+                                decoded_img,
+                                mouse,
+                                ScrollBar(
+                                    offset=step["state"]["scrollbar"]["offset"],
+                                    height=step["state"]["scrollbar"]["height"],
+                                ),
+                            )
+                            tool_result_content["content"].append(
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": "image/jpeg",
+                                        "data": marked_image,
+                                    },
+                                }
+                            )
+
+                        # Add the user block containing the tool result
+                        training_example.append(
+                            {"role": "user", "content": [tool_result_content]}
+                        )
+
+                        # Build the next tool_use content
+                        reasoning_text = step["action"]["reasoning"]
+                        current_tool_use_id = generate_tool_id()
+                        current_tool_use_name = step["action"]["action"]
+
+                        tool_use_content = [
+                            {"type": "text", "text": reasoning_text},
+                            {
+                                "type": "tool_use",
+                                "name": "computer",
+                                "id": current_tool_use_id,
+                                "input": {"action": current_tool_use_name},
+                            },
+                        ]
+
+                        # If we have a coordinate, normalize
+                        if step["action"]["coordinate"]:
+                            x_coord, y_coord = step["action"]["coordinate"]
+                            norm_x = float(x_coord) / float(step["state"]["width"])
+                            norm_y = float(y_coord) / float(step["state"]["height"])
+                            tool_use_content[-1]["input"]["coordinate"] = [
+                                norm_x,
+                                norm_y,
+                            ]
+
+                        # If we have text, add it
+                        if step["action"]["text"]:
+                            tool_use_content[-1]["input"]["text"] = step["action"][
+                                "text"
+                            ]
+
+                        # Add the assistant block containing the new tool use
+                        training_example.append(
+                            {"role": "assistant", "content": tool_use_content}
+                        )
+
+                        # Track the new function use
+                        last_function_use_id = current_tool_use_id
+
+                    examples.append(training_example)
+
+                # Write out the new JSONL file
+                output_path = os.path.join(output_dir, filename)
+                with open(output_path, "w", encoding="utf-8") as jsonl_file:
+                    for ex in examples:
+                        # Each 'ex' is the entire conversation, so we can dump it
+                        jsonl_entry = json.dumps(ex)
+                        jsonl_file.write(jsonl_entry + "\n")
+
+
+if __name__ == "__main__":
+    main()
+</mind2web_to_molmo.py>
+
