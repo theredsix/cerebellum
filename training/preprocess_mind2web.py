@@ -233,7 +233,7 @@ def process_step(
             browser_state = BrowserState(
                 url="",
                 screenshot=viewport_screenshot(screenshot, viewport),
-                height=int(viewport_height),
+                height=viewport_height,
                 width=width,
                 scrollbar=ScrollBar(
                     offset=float(viewport[1]) / y_max,
@@ -257,7 +257,7 @@ def process_step(
             browser_state = BrowserState(
                 url="",
                 screenshot=viewport_screenshot(screenshot, viewport),
-                height=int(viewport_height),
+                height=viewport_height,
                 width=width,
                 scrollbar=ScrollBar(
                     offset=float(viewport[1]) / y_max,
@@ -290,7 +290,7 @@ def process_step(
     browser_state = BrowserState(
         url="",
         screenshot=viewport_screenshot(screenshot, viewport),
-        height=int(viewport_height),
+        height=viewport_height,
         width=width,
         scrollbar=ScrollBar(
             offset=float(viewport[1]) / y_max,
@@ -315,7 +315,7 @@ def process_step(
     browser_state = BrowserState(
         url="",
         screenshot=viewport_screenshot(screenshot, viewport),
-        height=int(viewport_height),
+        height=viewport_height,
         width=width,
         scrollbar=ScrollBar(
             offset=float(viewport[1]) / y_max,
@@ -340,7 +340,7 @@ def process_step(
         browser_state = BrowserState(
             url="",
             screenshot=viewport_screenshot(screenshot, viewport),
-            height=int(viewport_height),
+            height=viewport_height,
             width=width,
             scrollbar=ScrollBar(
                 offset=float(viewport[1]) / y_max,
