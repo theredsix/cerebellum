@@ -2,5 +2,6 @@
 molmo/*
 mind2web/*
 hf_dataset/*
+images/*
 poetry.lock
 *.jsonl

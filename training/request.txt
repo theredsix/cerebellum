@@ -13,9 +13,22 @@ You are an expert AI/ML engineer working to curate a dataset to fine-tune a mult
 </Background>
 
 <MessageFormating>
-* 
-
-
+* Below is ultimatly what the format for each should look like:
+{
+"messages": [
+{"role": "user", "content": "<system prompt> followed by <tool desc> followed by <task>"},
+{"role": "assistant", "content": "<screen shot toouse>"},
+{"role": "user", "content": "<image> <tooluse result>"},
+{"role": "assistant", "conent": "<tool use>"}
+],
+"images": [
+    "images/1.png"
+]
+}
+* For each line in the molmo jsonl the:
+- The last entry should be the <tool use> above in the last entry
+- Screenshot will come from second to last entry, and should be extract from tool_result
+- The first two entries should be combined with tooluse_desc.json to create system prompt, tool use, and user task.
 
 </MessageFormating>
 
@@ -29,57 +42,6 @@ Create a python script that can take the outputs of `mind2web_to_molmo.py` (a di
 * For the tool description in each conversation, use `tool_use_desc.json`. 
 * For each line the conversation history should only contain the system prompt, then the origianl task, then the lastest screenshot, then the following tool use. 
 * Provide option to limit max number of lines from each file and max number of files
-
-{
-  "conversations": [
-    {"from": "system", "value": "...system prompt..."},
-    {"from": "human",  "value": "...original user task..."},
-    {"from": "observation", "value": "<image> ...some optional text describing screenshot..."},
-    {"from": "function_call", "value": "{\"name\": \"computer_use\", \"arguments\": ...}"}
-  ],
-  "tools": [ ... list of tool function descriptors from tool_use_desc.json ... ]
-}
-
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Hi, I have some ingredients and I want to cook something. Can you help me find a recipe?"
-      },
-      {
-        "from": "gpt",
-        "value": "Of course! I can help you with that. Please tell me what ingredients you have."
-      },
-      {
-        "from": "human",
-        "value": "I have chicken, bell peppers, and rice."
-      },
-      {
-        "from": "function_call",
-        "value": "{\"name\": \"search_recipes\", \"arguments\": {\"ingredients\": [\"chicken\", \"bell peppers\", \"rice\"]}}"
-      },
-      {
-        "from": "observation",
-        "value": "{\"recipes\": [{\"name\": \"Chicken and Bell Pepper Stir Fry\", \"ingredients\": [\"chicken\", \"bell peppers\", \"rice\"], \"instructions\": \"Cut the chicken into small pieces. Slice the bell peppers. Cook the rice. Stir fry the chicken and bell peppers. Serve over rice.\"}, {\"name\": \"Chicken and Rice Casserole\", \"ingredients\": [\"chicken\", \"bell peppers\", \"rice\"], \"instructions\": \"Cook the chicken and rice separately. Mix them together with the bell peppers in a casserole dish. Bake until golden brown.\"}]}"
-      },
-      {
-        "from": "gpt",
-        "value": "I found two recipes for you. The first one is \"Chicken and Bell Pepper Stir Fry\". The instructions are: Cut the chicken into small pieces. Slice the bell peppers. Cook the rice. Stir fry the chicken and bell peppers. Serve over rice. The second one is \"Chicken and Rice Casserole\". The instructions are: Cook the chicken and rice separately. Mix them together with the bell peppers in a casserole dish. Bake until golden brown. Which one would you like to try?"
-      },
-      {
-        "from": "human",
-        "value": "They both sound delicious, but I think I'll try the stir fry. Can you order the ingredients for me?"
-      },
-      {
-        "from": "gpt",
-        "value": "I'm sorry, but as an AI, I don't have the capability to perform external tasks such as ordering ingredients. However, I can help you find more recipes or provide cooking tips if you need."
-      }
-    ],
-    "tools": "[{\"name\": \"search_recipes\", \"description\": \"Search for recipes based on ingredients\", \"parameters\": {\"type\": \"object\", \"properties\": {\"ingredients\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, \"description\": \"The ingredients to search for\"}}, \"required\": [\"ingredients\"]}}]"
-  },
-
-
-
 </Tasks>
 
 
