@@ -1,5 +1,5 @@
 from seleniumbase import get_driver
-from cerebellum import AnthropicPlanner, BrowserAgent, BrowserAgentOptions, pause_for_input
+from cerebellum import vLLMPlanner, vLLMPlannerOptions, BrowserAgent, BrowserAgentOptions, pause_for_input
 
 def main():
     driver = get_driver()
@@ -11,15 +11,20 @@ def main():
         # Define your goal
         goal = "Show me the wikipedia page of the creator of Bitcoin"
 
+        options = vLLMPlannerOptions(
+            model="Qwen2-VL-7B-Instruct",
+            server="http://localhost:8000",
+            debug_image_path='debug.png'
+        )
+
         # Create the Cerebellum browser agent
-        planner = AnthropicPlanner()
+        planner = vLLMPlanner(options)
 
         options = BrowserAgentOptions(pause_after_each_action=True)
 
         agent = BrowserAgent(driver, planner, goal, options)
-        agent.pause_after_each_action = False
 
-        pause_for_input()
+        # pause_for_input()
         # Have Cerebellum takeover website navigation
         agent.start()
 
