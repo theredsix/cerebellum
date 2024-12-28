@@ -12,6 +12,7 @@ import io
 import json
 import math
 import os
+import copy
 
 from PIL import Image
 
@@ -193,28 +194,35 @@ def main() -> None:
             # The first line's "goal" -> This is the first message for every example
             goal = lines_data.pop(0)["goal"]
 
-            goal_message = {
-                "role": "user",
-                "content": f"<USER_TASK>{goal}</USER_TASK>\n<USER_DATA>NONE</USER_DATA>",
-            }
+            # Message 1 - Goal
+            initial_messages = [
+                {
+                    "role": "user",
+                    "content": f"<USER_TASK>{goal}</USER_TASK>\n<USER_DATA>NONE</USER_DATA>",
+                }
+            ]
 
-            screen_shot_tool_use = {
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "Take a screenshot of the browser to understand the current webpage",
-                    },
-                    {
-                        "type": "tool_use",
-                        "name": "screenshot",
-                        "input": {},
-                    },
-                ],
-            }
+            # Message 2 - Assistant screenshot reason
+            initial_messages.append(
+                {
+                    "role": "assistant",
+                    "content": "Take a screenshot of the browser to understand the current webpage",
+                }
+            )
+
+            # Message 3 - Screenshot tool use
+            initial_messages.append(
+                {
+                    "role": "function_call",
+                    "content": json.dumps({"name": "screenshot", "arguments": {}}),
+                }
+            )
 
             # Build incremental sequences
             for line in lines_data:
+
+                # Copy Messages 1-3
+                messages = copy.deepcopy(initial_messages)
 
                 # Build initial screen shot response
                 mouse = Coordinate(
@@ -229,31 +237,27 @@ def main() -> None:
                     (mouse.y / float(line["state"]["height"])) * 1000
                 )
 
-                screen_shot_tool_result = {
-                    "role": "user",
-                    "content": f"<image>Mouse is at X: {normalized_mouse_x}, Y: {normalized_mouse_y}",
-                }
+                # Message 4 - Screenshot result
+                messages.append(
+                    {
+                        "role": "observation",
+                        "content": f"<image>Mouse is at X: {normalized_mouse_x}, Y: {normalized_mouse_y}",
+                    }
+                )
 
-                # Build assistant tool response
+                # Get information from example
                 action_data = line["action"]
 
-                next_tool_use = {
-                    "role": "assistant",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"{action_data['reasoning']}",
-                        },
-                        {
-                            "type": "tool_use",
-                            "name": action_data["action"],
-                            "input": {},
-                        },
-                    ],
-                }
+                # Message 5 - Next tool use reasoning
+                messages.append(
+                    {"role": "assistant", "content": f"{action_data['reasoning']}"}
+                )
+
+                # Build json for next tool use
+                next_tool = {"name": action_data["action"], "arguments": {}}
 
                 if action_data["text"] is not None:
-                    next_tool_use["content"][1]["input"]["text"] = action_data["text"]
+                    next_tool["arguments"]["text"] = action_data["text"]
                 if action_data["coordinate"] is not None:
                     x_coord, y_coord = action_data["coordinate"]
                     norm_x = int(
@@ -262,10 +266,18 @@ def main() -> None:
                     norm_y = int(
                         (float(y_coord) / float(line["state"]["height"])) * 1000
                     )
-                    next_tool_use["content"][1]["input"]["coordinate"] = [
+                    next_tool["arguments"]["coordinate"] = [
                         norm_x,
                         norm_y,
                     ]
+
+                # Message 6 - Next tool use
+                messages.append(
+                    {
+                        "role": "function_call",
+                        "content": json.dumps(next_tool),
+                    }
+                )
 
                 # Create the marked image
                 decoded_img = base64.b64decode(line["state"]["screenshot"])
@@ -283,14 +295,7 @@ def main() -> None:
                     img_file.write(base64.b64decode(marked_image))
                 global_image_counter += 1
 
-                # Contruct componenets
-                messages = [
-                    goal_message,
-                    screen_shot_tool_use,
-                    screen_shot_tool_result,
-                    next_tool_use,
-                ]
-
+                # Construct complete example
                 this_example = {
                     "messages": messages,
                     "system": f"{system_prompt}",
