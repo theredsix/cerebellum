@@ -202,26 +202,33 @@ def main() -> None:
                 }
             ]
 
-            # Message 2 - Assistant screenshot reason
-            initial_messages.append(
-                {
-                    "role": "assistant",
-                    "content": "Take a screenshot of the browser to understand the current webpage",
-                }
-            )
+            # # Message 2 - Assistant screenshot reason
+            # initial_messages.append(
+            #     {
+            #         "role": "assistant",
+            #         "content": "Take a screenshot of the browser to understand the current webpage",
+            #     }
+            # )
 
-            # Message 3 - Screenshot tool use
+            # Message 2 - Screenshot tool use
             initial_messages.append(
                 {
                     "role": "function_call",
-                    "content": json.dumps({"name": "screenshot", "arguments": {}}),
+                    "content": json.dumps(
+                        {
+                            "name": "screenshot",
+                            "arguments": {
+                                "reason": "Take a screenshot of the browser to understand the current webpage"
+                            },
+                        }
+                    ),
                 }
             )
 
             # Build incremental sequences
             for line in lines_data:
 
-                # Copy Messages 1-3
+                # Copy Messages 1-2
                 messages = copy.deepcopy(initial_messages)
 
                 # Build initial screen shot response
@@ -237,24 +244,27 @@ def main() -> None:
                     (mouse.y / float(line["state"]["height"])) * 1000
                 )
 
-                # Message 4 - Screenshot result
+                # Message 3 - Screenshot result
                 messages.append(
                     {
                         "role": "observation",
-                        "content": f"<image>Mouse is at X: {normalized_mouse_x}, Y: {normalized_mouse_y}",
+                        "content": f"<image> Mouse is at X: {normalized_mouse_x}, Y: {normalized_mouse_y}",
                     }
                 )
 
                 # Get information from example
                 action_data = line["action"]
 
-                # Message 5 - Next tool use reasoning
-                messages.append(
-                    {"role": "assistant", "content": f"{action_data['reasoning']}"}
-                )
+                # # Message 5 - Next tool use reasoning
+                # messages.append(
+                #     {"role": "assistant", "content": f"{action_data['reasoning']}"}
+                # )
 
                 # Build json for next tool use
-                next_tool = {"name": action_data["action"], "arguments": {}}
+                next_tool = {
+                    "name": action_data["action"],
+                    "arguments": {"reason": action_data["reasoning"]},
+                }
 
                 if action_data["text"] is not None:
                     next_tool["arguments"]["text"] = action_data["text"]
@@ -271,7 +281,7 @@ def main() -> None:
                         norm_y,
                     ]
 
-                # Message 6 - Next tool use
+                # Message 4 - Next tool use
                 messages.append(
                     {
                         "role": "function_call",

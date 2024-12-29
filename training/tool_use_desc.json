@@ -8,10 +8,15 @@
                 "text": {
                     "description": "The string of text to type.",
                     "type": "string"
+                },
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
                 }
             },
             "required": [
-                "text"
+                "text",
+                "reason"
             ]
         }
     },
@@ -24,10 +29,15 @@
                 "text": {
                     "description": "The key or key-combination to press.",
                     "type": "string"
+                },
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
                 }
             },
             "required": [
-                "text"
+                "text",
+                "reason"
             ]
         }
     },
@@ -40,10 +50,15 @@
                 "coordinate": {
                     "description": "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates to move the mouse to.",
                     "type": "array"
+                },
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
                 }
             },
             "required": [
-                "coordinate"
+                "coordinate",
+                "reason"
             ]
         }
     },
@@ -52,8 +67,15 @@
         "description": "Click the left mouse button.",
         "parameters": {
             "type": "object",
-            "properties": {},
-            "required": []
+            "properties": {
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "reason"
+            ]
         }
     },
     {
@@ -65,10 +87,15 @@
                 "coordinate": {
                     "description": "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates to drag the mouse to.",
                     "type": "array"
+                },
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
                 }
             },
             "required": [
-                "coordinate"
+                "coordinate",
+                "reason"
             ]
         }
     },
@@ -77,8 +104,15 @@
         "description": "Click the right mouse button.",
         "parameters": {
             "type": "object",
-            "properties": {},
-            "required": []
+            "properties": {
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "reason"
+            ]
         }
     },
     {
@@ -86,8 +120,15 @@
         "description": "Double-click the left mouse button.",
         "parameters": {
             "type": "object",
-            "properties": {},
-            "required": []
+            "properties": {
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "reason"
+            ]
         }
     },
     {
@@ -103,10 +144,15 @@
                 "error": {
                     "type": "string",
                     "description": "The error message if the task was not successful"
+                },
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
                 }
             },
             "required": [
-                "success"
+                "success",
+                "reason"
             ]
         }
     },
@@ -115,8 +161,15 @@
         "description": "Take a screenshot of the screen.",
         "parameters": {
             "type": "object",
-            "properties": {},
-            "required": []
+            "properties": {
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "reason"
+            ]
         }
     },
     {
@@ -128,10 +181,15 @@
                 "seconds": {
                     "description": "The number of seconds to wait.",
                     "type": "integer"
+                },
+                "reason": {
+                    "description": "Short reason tool was chosen.",
+                    "type": "string"
                 }
             },
             "required": [
-                "seconds"
+                "seconds",
+                "reason"
             ]
         }
     }
