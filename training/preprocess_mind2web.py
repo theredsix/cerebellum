@@ -14,13 +14,20 @@ import base64
 import dataclasses
 import json
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from io import BytesIO
 from typing import List, Literal, Tuple
 
 from datasets import load_dataset
 from PIL import Image
 
+from pydantic import BaseModel
+import google.generativeai as genai
+from google.ai.generativelanguage_v1beta.types import content
+import os
+
+
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 @dataclass
 class Coordinate:
@@ -94,6 +101,161 @@ class BrowserStep:
 
     state: BrowserState
     action: BrowserAction
+
+class vLLMResponse(BaseModel):
+    last_step_analysis: str
+    is_last_step_successful: bool
+    review_of_past_steps: str
+    current_state: str
+    current_mouse_analysis: str
+    current_active_element: str
+    potential_action_1: str
+    potential_action_2: str
+    potential_action_3: str
+    potential_action_4: str
+    potential_action_5: str
+    potential_action_analysis: str
+    next_action_plan: str
+
+
+def backfill_reasoning(goal: str, steps: List[BrowserStep]):
+    last_action_taken = "Take a screenshot of the browser."
+    past_action_history = "Browsing session started."
+
+    model_1 = genai.GenerativeModel(
+            model_name="gemini-2.0-flash-exp",
+            generation_config={
+                "temperature": 1,
+                "max_output_tokens": 1024,
+                # "response_schema": content.Schema(
+                #     type = content.Type.OBJECT,
+                #     properties = {
+                #     "last_step_analysis": content.Schema(
+                #         type = content.Type.STRING,
+                #     ),
+                #     "is_last_step_successful": content.Schema(
+                #         type = content.Type.BOOLEAN,
+                #     ),
+                #     },
+                # ),
+                "response_mime_type": "application/json",
+                },
+            )
+    
+    model_2 = genai.GenerativeModel(
+            model_name="gemini-1.5-pro",
+            generation_config={
+                "temperature": 1,
+                "max_output_tokens": 2000,
+                # "response_schema": content.Schema(
+                #     type = content.Type.OBJECT,
+                #     properties = {
+                #     "last_step_analysis": content.Schema(
+                #         type = content.Type.STRING,
+                #     ),
+                #     "is_last_step_successful": content.Schema(
+                #         type = content.Type.BOOLEAN,
+                #     ),
+                #     },
+                # ),
+                "response_mime_type": "application/json",
+                },
+            )
+
+    for i in range(len(steps)):
+        step = steps[i]
+        last_attempt_prompt = f'''
+You are being show a single user action step in a browsing session. Your task is to analyze the <LAST_ATTEMPTED_ACTION> and see if the action was successful. You are provided with:
+
+* A screenshot of the browser after <LAST_ATTEMPTED_ACTION>
+* A <PAST_ACTION_HISTORY> which describes the chain of actions taken before the <LAST_ATTEMPTED_ACTION>
+* The <GOAL> of the user
+
+<GOAL>
+{goal}
+</GOAL>
+
+<LAST_ATTEMPTED_ACTION>
+{last_action_taken}
+</LAST_ATTEMPTED_ACTION>
+
+<PAST_ACTION_HISTORY>
+{past_action_history}
+</PAST_ACTION_HISTORY>
+
+Output a JSON in the following format:
+{{
+    last_step_analysis: str, # Concisely reason out if the LAST_ATTEMPTED_ACTION accomplished the desired outcome, for exaxmple, if the LAST_ATTEMPTED_ACTION was to take a screenshot and a screenshot was provided then this would be a success.
+    is_last_step_successful: bool, # A boolean true or false
+}}
+'''
+    
+        response = model_1.generate_content([
+                { 'mime_type':'image/jpeg', 'data': step.state.screenshot},
+                last_attempt_prompt
+            ])
+        
+        last_step_analysis = json.loads(response.text)
+
+        print(json.dumps(last_step_analysis, indent=4))
+
+        next_step_backfill_prompt = f'''
+You are being show a single user action step in a browsing session. Your task come up with the chain of thought that led the user to the next action in service of accomplishing their <GOAL>. You are provided with:
+
+* The <GOAL> of the user
+* A <NEXT_ACTION_INPUT> this is the mechanical operation of mouse or keyboard for the next action.
+* A <LAST_ATTEMPTED_ACTION> which describes the the last attempted action.
+* A <PAST_ACTION_HISTORY> which describes the chain of actions taken before the <LAST_ATTEMPTED_ACTION>.
+* A screenshot of the browser after <LAST_ATTEMPTED_ACTION> but before <NEXT_ACTION_INPUT> is taken.
+
+<GOAL>
+{goal}
+</GOAL>
+
+<LAST_ATTEMPTED_ACTION>
+{last_action_taken}
+
+{last_step_analysis["last_step_analysis"]}
+</LAST_ATTEMPTED_ACTION>
+
+<PAST_ACTION_HISTORY>
+{past_action_history}
+</PAST_ACTION_HISTORY>
+
+<NEXT_ACTION_INPUT>
+{json.dumps(asdict(step.action))}
+</NEXT_ACTION_INPUT>
+
+Output a JSON in the following format:
+{{
+    review_of_past_steps: str,  # Synthesize <LAST_ATTEMPTED_ACTION> together with <PAST_ACTION_HISTORY> to summarize all prior attempted actions.
+    current_state: str,         # Describe the current state of the webpage
+    current_mouse_analysis: str, # State where the mouse cursor is on the screen. Do not output an exact coordinate but describe where it is relative to other visible major UI elements.
+    current_active_element: str, # Identify which element currently has focus/is active
+    next_action_plan: str        # Describe in words what the <NEXT_ACTION_INPUT> is attempting to do
+    alternative_action_1: str,     # First alternative next action the user could take
+    alternative_action_2: str,     # Second alternative next action the user could take  
+    alternative_action_3: str,     # Third alternative next action the user could take
+    alternative_action_4: str,     # Fourth alternative next action the user could take
+    next_action_analysis: str, # Given you know the next_action_plan is the correct action to take, reason through why each of the alternative actions are inferior to the next_action_plan
+}}
+'''
+    
+        response_2 = model_2.generate_content([
+                { 'mime_type':'image/jpeg', 'data': step.state.screenshot},
+                next_step_backfill_prompt
+            ])
+    
+        # Save screenshot to jpeg file
+        screenshot_data = base64.b64decode(step.state.screenshot)
+        screenshot_image = Image.open(BytesIO(screenshot_data))
+        screenshot_image.save(f'step_{i}.jpeg')
+
+        backfill = json.loads(response_2.text)
+
+        print(json.dumps(backfill, indent=4))
+
+    return []
 
 
 def generate_tool_id() -> str:
@@ -423,6 +585,9 @@ def main():
         for raw_step in steps:
             decomposed_steps, mouse = process_step(raw_step, mouse)
             cerebellum_steps += decomposed_steps
+
+        # Backfill the reasoning for each cerebellum_step
+        backfill_reasoning(goal, cerebellum_steps)
 
         # Define the output file path
         output_file_path = f"{args.output_dir}/{task_id}.jsonl"
