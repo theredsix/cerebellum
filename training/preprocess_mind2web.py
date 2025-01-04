@@ -13,18 +13,23 @@ import argparse
 import base64
 import dataclasses
 import json
+import math
 import random
 from dataclasses import dataclass, asdict
 from io import BytesIO
-from typing import List, Literal, Tuple
+from typing import List, Literal, Tuple, Union
 
 from datasets import load_dataset
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from pydantic import BaseModel
 import google.generativeai as genai
 from google.ai.generativelanguage_v1beta.types import content
 import os
+
+# Base64 encoded cursor image
+CURSOR_64 = "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAQCAYAAAAvf+5AAAAAw3pUWHRSYXcgcHJvZmlsZSB0eXBlIGV4aWYAAHjabVBRDsMgCP33FDuC8ijF49i1S3aDHX9YcLFLX+ITeOSJpOPzfqVHBxVOvKwqVSQbuHKlZoFmRzu5ZD55rvX8Uk9Dz2Ql2A1PVaJ/1MvPwK9m0TIZ6TOE7SpUDn/9M4qH0CciC/YwqmEEcqGEQYsvSNV1/sJ25CvUTxqBjzGJU86rbW9f7B0QHSjIxoD6AOiHE1oXjAlqjQVyxmTMkJjEFnK3p4H0BSRiWUv/cuYLAAABhWlDQ1BJQ0MgcHJvZmlsZQAAeJx9kT1Iw0AYht+2SqVUHCwo0iFD1cWCqIijVqEIFUKt0KqDyaV/0KQhSXFxFFwLDv4sVh1cnHV1cBUEwR8QZwcnRRcp8buk0CLGg7t7eO97X+6+A/yNClPNrnFA1SwjnUwI2dyqEHxFCFEM0DoqMVOfE8UUPMfXPXx8v4vzLO+6P0evkjcZ4BOIZ5luWMQbxNObls55nzjCSpJCfE48ZtAFiR+5Lrv8xrnosJ9nRoxMep44QiwUO1juYFYyVOIp4piiapTvz7qscN7irFZqrHVP/sJwXltZ5jrNKJJYxBJECJBRQxkVWIjTrpFiIk3nCQ//kOMXySWTqwxGjgVUoUJy/OB/8Lu3ZmFywk0KJ4DuF9v+GAaCu0Czbtvfx7bdPAECz8CV1vZXG8DMJ+n1thY7Avq2gYvrtibvAZc7wOCTLhmSIwVo+gsF4P2MvikH9N8CoTW3b61znD4AGepV6gY4OARGipS97vHuns6+/VvT6t8Ph1lyr0hzlCAAAA14aVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8P3hwYWNrZXQgYmVnaW49Iu+7vyIgaWQ9Ilc1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCI/Pgo8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA0LjQuMC1FeGl2MiI+CiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIKICAgIHhtbG5zOnN0RXZ0PSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VFdmVudCMiCiAgICB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iCiAgICB4bWxuczpHSU1QPSJodHRwOi8vd3d3LmdpbXAub3JnL3htcC8iCiAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyIKICAgIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIKICAgeG1wTU06RG9jdW1lbnRJRD0iZ2ltcDpkb2NpZDpnaW1wOjFiYzFkZjE3LWM5YmMtNGYzZi1hMmEzLTlmODkyNWNiZjY4OSIKICAgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDo4YTUyMWJhMC00YmNlLTQzZWEtYjgyYS04ZGM2MTBjYmZlOTgiCiAgIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDplODQ3ZjUxNC00MWVlLTQ2ZjYtOTllNC1kNjI3MjMxMjhlZTIiCiAgIGRjOkZvcm1hdD0iaW1hZ2UvcG5nIgogICBHSU1QOkFQST0iMi4wIgogICBHSU1QOlBsYXRmb3JtPSJMaW51eCIKICAgR0lNUDpUaW1lU3RhbXA9IjE3MzAxNTc3NjY5MTI3ODciCiAgIEdJTVA6VmVyc2lvbj0iMi4xMC4zOCIKICAgdGlmZjpPcmllbnRhdGlvbj0iMSIKICAgeG1wOkNyZWF0b3JUb29sPSJHSU1QIDIuMTAiCiAgIHhtcDpNZXRhZGF0YURhdGU9IjIwMjQ6MTA6MjhUMTY6MjI6NDYtMDc6MDAiCiAgIHhtcDpNb2RpZnlEYXRlPSIyMDI0OjEwOjI4VDE2OjIyOjQ2LTA3OjAwIj4KICAgPHhtcE1NOkhpc3Rvcnk+CiAgICA8cmRmOlNlcT4KICAgICA8cmRmOmxpCiAgICAgIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiCiAgICAgIHN0RXZ0OmNoYW5nZWQ9Ii8iCiAgICAgIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6ZTVjOTM2ZDYtYjMzYi00NzM4LTlhNWUtYjM3YTA5MzdjZDAxIgogICAgICBzdEV2dDpzb2Z0d2FyZUFnZW50PSJHaW1wIDIuMTAgKExpbnV4KSIKICAgICAgc3RFdnQ6d2hlbj0iMjAyNC0xMC0yOFQxNjoyMjo0Ni0wNzowMCIvPgogICAgPC9yZGY6U2VxPgogICA8L3htcE1NOkhpc3Rvcnk+CiAgPC9yZGY6RGVzY3JpcHRpb24+CiA8L3JkZjpSREY+CjwveDp4bXBtZXRhPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgCjw/eHBhY2tldCBlbmQ9InciPz5/5aQ8AAAABmJLR0QAcgByAAAtJLTuAAAACXBIWXMAAABZAAAAWQGqnamGAAAAB3RJTUUH6AocFxYuv5vOJAAAAHhJREFUKM+NzzEOQXEMB+DPYDY5iEVMIpzDfRxC3mZyBK7gChZnELGohaR58f7a7dd8bVq4YaVQgTvWFVjCUcXxA28qcBBHFUcVRwWPPuFfXVsbt0PPnLBL+dKHL+wxxhSPhBcZznuDXYKH1uGzBJ+YtPAZRyy/jTd7qEoydWUQ7QAAAABJRU5ErkJggg=="
+CURSOR_BYTES = base64.b64decode(CURSOR_64)
 
 
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
@@ -119,13 +124,57 @@ class vLLMResponse(BaseModel):
 
 
 def backfill_reasoning(goal: str, steps: List[BrowserStep]):
+    # For each step, update the screenshot to include mouse and scrollbar overlays
+    for step in steps:
+        # Get the browser state
+        browser_state = step.state
+        
+        # Get mouse position and scrollbar info
+        mouse_pos = Coordinate(x=math.floor(browser_state.mouse.x), y=math.floor(browser_state.mouse.y))
+        scrollbar = browser_state.scrollbar
+        
+        # Convert base64 screenshot back to bytes
+        img_bytes = base64.b64decode(browser_state.screenshot)
+        print(mouse_pos)
+        
+        # Mark the screenshot with overlays
+        marked_img_bytes = mark_screenshot(
+            img_bytes,
+            mouse_pos,
+            scrollbar,
+            None  # No active element highlighting needed for backfilling
+        )
+        
+        # Convert back to base64 and update the browser state
+        marked_b64 = base64.b64encode(marked_img_bytes).decode('utf-8')
+        browser_state.screenshot = marked_b64
+
+        # Normalize mouse coordinates to [0, 1000] based on viewport dimensions
+        normalized_x = int((mouse_pos.x / browser_state.width) * 1000)
+        normalized_y = int((mouse_pos.y / browser_state.height) * 1000)
+        browser_state.mouse = Coordinate(x=normalized_x, y=normalized_y)
+        print("AFTER", browser_state.mouse)
+        print(asdict(step.action))
+
+
+        if step.action.coordinate:
+            # Extract original coordinates
+            orig_x, orig_y = step.action.coordinate
+            
+            # Normalize coordinates to [0, 1000] based on viewport dimensions
+            norm_x = int((orig_x / step.state.width) * 1000)
+            norm_y = int((orig_y / step.state.height) * 1000)
+            
+            # Update the action coordinates
+            step.action.coordinate = (norm_x, norm_y)
+
     last_action_taken = "Take a screenshot of the browser."
     past_action_history = "Browsing session started."
 
     model_1 = genai.GenerativeModel(
-            model_name="gemini-2.0-flash-exp",
+            model_name="gemini-1.5-pro",
             generation_config={
-                "temperature": 1,
+                "temperature": 0,
                 "max_output_tokens": 1024,
                 # "response_schema": content.Schema(
                 #     type = content.Type.OBJECT,
@@ -145,7 +194,7 @@ def backfill_reasoning(goal: str, steps: List[BrowserStep]):
     model_2 = genai.GenerativeModel(
             model_name="gemini-1.5-pro",
             generation_config={
-                "temperature": 1,
+                "temperature": 0,
                 "max_output_tokens": 2000,
                 # "response_schema": content.Schema(
                 #     type = content.Type.OBJECT,
@@ -199,6 +248,13 @@ Output a JSON in the following format:
 
         print(json.dumps(last_step_analysis, indent=4))
 
+        # Deep copy the action and remove specified fields
+        action_copy = dataclasses.replace(step.action)
+        action_dict = dataclasses.asdict(action_copy)
+        action_dict.pop('reasoning', None)
+        action_dict.pop('id', None)
+        action_dict = {k:v for k,v in action_dict.items() if v is not None}
+
         next_step_backfill_prompt = f'''
 You are being show a single user action step in a browsing session. Your task come up with the chain of thought that led the user to the next action in service of accomplishing their <GOAL>. You are provided with:
 
@@ -223,14 +279,14 @@ You are being show a single user action step in a browsing session. Your task co
 </PAST_ACTION_HISTORY>
 
 <NEXT_ACTION_INPUT>
-{json.dumps(asdict(step.action))}
+{json.dumps(action_dict)}
 </NEXT_ACTION_INPUT>
 
 Output a JSON in the following format:
 {{
     review_of_past_steps: str,  # Synthesize <LAST_ATTEMPTED_ACTION> together with <PAST_ACTION_HISTORY> to summarize all prior attempted actions.
     current_state: str,         # Describe the current state of the webpage
-    current_mouse_analysis: str, # State where the mouse cursor is on the screen. Do not output an exact coordinate but describe where it is relative to other visible major UI elements.
+    current_mouse_analysis: str, # Describe mouse cursor position relative to visible UI elements. Do not discuss the intent of the mouse position.
     current_active_element: str, # Identify which element currently has focus/is active
     next_action_plan: str        # Describe in words what the <NEXT_ACTION_INPUT> is attempting to do
     alternative_action_1: str,     # First alternative next action the user could take
@@ -252,6 +308,9 @@ Output a JSON in the following format:
         screenshot_image.save(f'step_{i}.jpeg')
 
         backfill = json.loads(response_2.text)
+
+        last_action_taken = backfill["next_action_plan"]
+        past_action_history = backfill["review_of_past_steps"]
 
         print(json.dumps(backfill, indent=4))
 
@@ -328,8 +387,7 @@ def scroll_viewport(
 
 
 def viewport_screenshot(
-    screenshot: Image.Image, viewport: Tuple[float, float, float, float]
-) -> str:
+    screenshot: Image.Image, viewport: Tuple[float, float, float, float]) -> str:
     """
     Crops the given screenshot to the specified viewport and returns a base64 encoding
     of the cropped image.
@@ -349,6 +407,77 @@ def viewport_screenshot(
     encoded_string = base64.b64encode(buffered.getvalue()).decode("utf-8")
     return encoded_string
 
+def mark_screenshot(img_buffer: bytes, mouse_position: Coordinate, scrollbar: ScrollBar, active_element: Union[tuple[Coordinate, Coordinate], None]
+) -> bytes:
+    """Adds scrollbar and cursor overlays to a screenshot.
+
+    Args:
+        img_buffer: Raw bytes of the screenshot image
+        mouse_position: Coordinate object containing x,y position of mouse cursor
+        scrollbar: ScrollBar object containing scrollbar dimensions and position
+
+    Returns:
+        Raw bytes of the modified screenshot with overlays added
+
+    Raises:
+        IOError: If there are issues manipulating the image
+    """
+    with Image.open(BytesIO(img_buffer)) as img:
+        width, height = img.size
+
+        # Create scrollbar overlay
+        scrollbar_width = 10
+        scrollbar_height = int(height * scrollbar.height)
+        scrollbar_top = int(height * scrollbar.offset)
+
+        # Create gray rectangle for scrollbar
+        # 0.7 opacity = 179 in 8-bit alpha (0.7 * 255 ≈ 179)
+        scrollbar_img = Image.new(
+            "RGBA", (scrollbar_width, scrollbar_height), (128, 128, 128, 179)
+        )
+
+        # Create composite image
+        composite = img.copy()
+        composite.paste(scrollbar_img, (width - scrollbar_width, scrollbar_top))
+
+        # Add cursor
+        cursor_img = Image.open(BytesIO(CURSOR_BYTES))
+        composite.paste(
+            cursor_img,
+            (
+                max(0, mouse_position.x - cursor_img.width // 2),
+                max(0, mouse_position.y - cursor_img.height // 2),
+            ),
+            cursor_img,
+        )
+
+        # Draw bounding box around active element if it exists
+        if active_element:
+            draw = ImageDraw.Draw(composite)
+            
+            # Extract coordinates
+            top_left = active_element[0]
+            dimensions = active_element[1]
+
+            # Calculate box coordinates
+            x1 = top_left.x
+            y1 = top_left.y
+            x2 = x1 + dimensions.x
+            y2 = y1 + dimensions.y
+
+            # Ensure coordinates stay within image bounds
+            x1 = max(0, min(x1, width))
+            y1 = max(0, min(y1, height))
+            x2 = max(0, min(x2, width))
+            y2 = max(0, min(y2, height))
+            
+            # Draw red rectangle with width 2
+            draw.rectangle([(x1, y1), (x2, y2)], outline='red', width=2, fill=None)
+
+        # Convert back to bytes
+        output_buffer = BytesIO()
+        composite.save(output_buffer, format="PNG")
+        return output_buffer.getvalue()
 
 def process_step(
     step, mouse_coordinates: Coordinate
@@ -581,7 +710,7 @@ def main():
 
         # Decompose each step into multiple browser steps
         cerebellum_steps: List[BrowserStep] = []
-        mouse = Coordinate(x=1, y=1)
+        mouse = Coordinate(x=5, y=5)
         for raw_step in steps:
             decomposed_steps, mouse = process_step(raw_step, mouse)
             cerebellum_steps += decomposed_steps
