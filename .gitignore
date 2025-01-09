@@ -140,3 +140,6 @@ docs/_build/
 docs/build/
 site/
 python/docs/build/
+
+# Local files
+**/mind2web/*

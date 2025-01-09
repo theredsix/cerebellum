@@ -26,6 +26,13 @@ ruff = "^0.7.2"
 mypy = "^1.13.0"
 sphinx = "^7.2.6"
 
+[tool.poetry.group.train.dependencies]
+datasets = "^3.2.0"
+transformers = "^4.47.1"
+huggingface = "^0.0.1"
+google-generativeai = "^0.8.3"
+pillow = "^11.1.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
