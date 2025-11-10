@@ -1,23 +1,25 @@
-import { Builder, Browser } from 'selenium-webdriver';
-import { ServiceBuilder } from 'selenium-webdriver/firefox';
+import { Builder, Browser } from "selenium-webdriver";
+// import { ServiceBuilder } from "selenium-webdriver/firefox.js";
 
-import { AnthropicPlanner, BrowserAgent, pauseForInput } from 'cerebellum-ai';
+import { AnthropicPlanner, BrowserAgent, pauseForInput } from "cerebellum-ai";
 
 (async function example() {
   let driver = await new Builder()
-    .forBrowser(Browser.FIREFOX)
-    .setFirefoxService(new ServiceBuilder('/snap/bin/geckodriver')) // Necessary for snap based firefox installs
+    .forBrowser(Browser.CHROME)
+    // .setFirefoxService(new ServiceBuilder("/snap/bin/geckodriver")) // Necessary for snap based firefox installs
     .build();
 
   try {
     // Set your starting page
-    await driver.get('https://www.amazon.com');
-    
+    await driver.get("https://www.amazon.com");
+
     // Define your goal
-    const goal = 'Find a USB C cable that is 10 feet long and add it to cart';
-    
+    const goal = "Find a USB C cable that is 10 feet long and add it to cart";
+
     // Create the Cerebellum browser agent
-    const planner = new AnthropicPlanner(process.env.ANTHROPIC_API_KEY as string);
+    const planner = new AnthropicPlanner(
+      process.env.ANTHROPIC_API_KEY as string
+    );
     const agent = new BrowserAgent(driver, planner, goal);
 
     // Have Cerebellum takeover website navigation

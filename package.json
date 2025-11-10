@@ -5,7 +5,10 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "repository": "github:theredsix/cerebellum",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theredsix/cerebellum.git"
+  },
   "bugs": {
     "url": "https://github.com/theredsix/cerebellum/issues",
     "email": "project@hostname.com"
@@ -20,12 +23,18 @@
   "devDependencies": {
     "@types/selenium-webdriver": "^4.1.26",
     "@types/sharp": "^0.31.1",
+    "geckodriver": "4.5.1",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.1",
-    "selenium-webdriver": "^4.25.0",
+    "selenium-webdriver": "4.25.0",
     "sharp": "^0.33.5"
-  }
+  },
+  "homepage": "https://github.com/theredsix/cerebellum#readme",
+  "directories": {
+    "example": "example"
+  },
+  "keywords": []
 }
