@@ -1,3 +1,5 @@
+## This package is depreciated. For a better agent browser tool that scores 90% on Online Mind2Web, see [Agent Browser Protocol](https://github.com/theredsix/agent-browser-protocol)
+
 # Cerebellum
 
 A lightweight browser using agent that accomplishes user-defined goals on webpages using keyboard and mouse actions.
